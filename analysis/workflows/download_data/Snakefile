@@ -1,0 +1,45 @@
+"""
+Downloads reads from ENA for pf6, pvgv and pacb_ilmn and PACB assemblies for pacb_ilmn
+"""
+
+from pathlib import Path
+
+WORKFLOW = "download_data"
+
+
+configfile: "analysis/configs/common.yaml"
+configfile: f"analysis/configs/{WORKFLOW}.yaml"
+
+
+include: "../common_utils.py"
+include: "utils.py"
+
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+
+# ena_records = load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"])
+ena_records = load_pvgv(config["pvgv_tsv"])
+sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
+
+
+rule all:
+    input:
+        expand(
+            f"{output_base}/{{record.dataset_name}}/{{record.sample_name}}/reads_{{i}}.fastq.gz",
+            record=ena_records,
+            i=[1, 2],
+        ),
+
+
+rule download_ena:
+    output:
+        expand(
+            "{output_base}/{{dataset_name}}/{{sample_name}}/reads_{i}.fastq.gz",
+            output_base=output_base,
+            i=[1, 2],
+        ),
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/dl_ilmn.py',
+        ena_IDs=lambda wildcards: sample_to_ena_IDs[wildcards.sample_name],
+    shell:
+        f"python3 {{params.script}} {output_base}/{{wildcards.dataset_name}}/{{wildcards.sample_name}} {{params.ena_IDs}}"

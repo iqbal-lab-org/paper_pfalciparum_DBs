@@ -1,4 +1,5 @@
 scripts: "analysis/scripts"
 output_dir: "analysis/outputs"
 gram_builds_dir: "analysis/outputs/gram_builds"
-container : "container/built/singu.sif"
+container_gramtools : "container/built/singu.sif"
+container_minos: "container/built/minospb.sif"
