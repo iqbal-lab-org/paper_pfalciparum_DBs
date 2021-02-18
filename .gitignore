@@ -1,0 +1,22 @@
+# manual testing
+tmp_work
+
+# Scratch stuff
+README.rst
+TODOs.rst
+
+# running
+venv
+.snakemake
+container/built
+container/legacy_built
+analysis/outputs
+analysis/logs
+
+# python
+__pycache__
+*.egg-info
+
+# vim
+*~
+*.swp

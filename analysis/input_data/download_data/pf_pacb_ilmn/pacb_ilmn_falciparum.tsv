@@ -1,0 +1,21 @@
+sample_name	ENA_sample_accession_ILMN	ENA_read_accession	ENA_accession_PACB
+# Paper giving the ENA accessions : 10.12688/wellcomeopenres.14571.1
+# Note the sample_name is conformed to that used in the PACB assemblies at ftp://ftp.sanger.ac.uk/pub/project/pathogens/Plasmodium/falciparum/PF3K/ReferenceGenomes_Version1/GENOMES/
+# ILMN sample accessions with > 1 read accession on 01/05/2020: PfIT, PfTG01, PfML01, KH01
+# Rationale for choice: PfIT pick one of two MiSeq runs as opposed to HiSeq2500, because less PCR amplification (Thomas Otto personal comm.), and the latter are > 10 GB of reads. Others: pick the read accession with largest file size.
+Pf3D7	ERS557779	 	ERS782627
+PfIT	ERS557780	ERR1343009	ERS480577
+PfDd2	ERS754081	ERR1008806	ERS639545
+PfHB3	ERS754080	ERR1008805	ERS712858
+Pf7G8	ERS754078	ERR1008803	ERS686280
+PfGB4	ERS754079	ERR1008804	ERS686279
+PfSN01	ERS740935	ERR980502	ERS637501
+PfGN01	ERS740940	ERR980507	ERS739315
+PfTG01	ERS747371	ERR1024467	ERS746008
+PfML01	ERS747373	ERR1024469	ERS755621
+PfGA01	ERS740939	ERR980506	ERS739316
+PfCD01	ERS1306147	ERR2969244	ERS806988
+PfSD01	ERS747372	ERR1024468	ERS746009
+PfKE01	ERS740937	ERR980504	ERS525803
+PfKH01	ERS747370	ERR1024466	ERS712859
+PfKH02	ERS740936	ERR980503	ERS686281

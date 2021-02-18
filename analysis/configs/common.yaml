@@ -1,0 +1,4 @@
+scripts: "analysis/scripts"
+output_dir: "analysis/outputs"
+gram_builds_dir: "analysis/outputs/gram_builds"
+container : "container/built/singu.sif"
