@@ -20,6 +20,7 @@ From: ubuntu:focal
 	automake \
 	cmake \
 	git \
+    openjdk-8-jre \
 	pkg-config \
 	python3.8 \
 	python3-pip \
@@ -27,7 +28,10 @@ From: ubuntu:focal
 	wget \
 	zlib1g-dev
 
-    ##### Currently tested ends here #######
+    HOME="/software"
+    mkdir $HOME
+    cd $HOME
+
 	# python requirements of repo
 	pip3 install pip==20.0.2 
 	pip3 install -r /setup_files/pyrequirements.txt
@@ -38,6 +42,16 @@ From: ubuntu:focal
     cp -r enaBrowserTools/python3/* /usr/bin
     rm -r enaBrowserTools
 
+    ## rasusa, read subsampling
+    rasusa_URL="https://github.com/mbhall88/rasusa/releases/download/0.3.0/rasusa-0.3.0-x86_64-unknown-linux-musl.tar.gz"
+    wget "$rasusa_URL" -O - | tar -xzf -
+    mv ./rasusa /usr/bin/
+
+    ## trimmommatic, read adapter and low-quality-base clipping
+    wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.36.zip
+    unzip Trimmomatic-0.36.zip && rm Trimmomatic-0.36.zip
+
+    ##### Currently tested ends here #######
 
     # R requirements of repo
     Rscript /setup_files/Rpacks.R

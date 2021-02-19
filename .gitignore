@@ -1,9 +1,10 @@
 # manual testing
 tmp_work
 
-# Scratch stuff
+# Scratch material
 README.rst
 TODOs.rst
+container/mini_def.def
 
 # running
 venv
