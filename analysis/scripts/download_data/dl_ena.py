@@ -38,12 +38,14 @@ def make_two_read_files(outdir, ena_IDs) -> None:
         assert_two_paired_fastq_files(run_id)
 
     for i in [1, 2]:
+        reads = []
+        for run_id in run_ids:
+            reads += glob(f"{run_id}/*_{i}.fastq.gz")
+        reads = " ".join(reads)
         if len(run_ids) > 1:
-            reads = " ".join([f"{x}/{x}_{i}.fastq.gz" for x in run_ids])
             command = f"cat {reads} > reads_{i}.fastq.gz"
         else:
-            run_id = Path(run_ids[0]).name
-            command = f"mv {run_ids[0]}/{run_id}_{i}.fastq.gz reads_{i}.fastq.gz"
+            command = f"mv {reads} reads_{i}.fastq.gz"
 
         print("Start:", command)
         subprocess.check_output(command, shell=True, cwd=outdir)
@@ -75,8 +77,8 @@ def main():
         ena_IDs = sys.argv[1]
         outdir = Path(sys.argv[2]).resolve()
     except:
-        print(f"Usage: {sys.argv[0]} ena_ID output_dir \n
-                Each ena_ID looks like ERR*/ERS*; multiple ena_IDs can be passed as comma-separated")
+        print(f"Usage: {sys.argv[0]} ena_ID output_dir \n"
+                "Each ena_ID looks like ERR*/ERS*; multiple ena_IDs can be passed as comma-separated")
         exit(1)
 
     outdir.mkdir(parents=True, exist_ok=True)
@@ -85,7 +87,7 @@ def main():
         print(f"{outdir} already has reads, nothing to do", file=sys.stderr)
         return
 
-    for ena_ID in ena_IDs:
+    for ena_ID in ena_IDs.split(","):
         ena_download(outdir, ena_ID)
     make_two_read_files(outdir, ena_IDs)
 

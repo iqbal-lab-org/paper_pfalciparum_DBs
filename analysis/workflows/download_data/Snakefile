@@ -39,7 +39,7 @@ rule download_ena:
             i=[1, 2],
         ),
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/dl_ilmn.py',
+        script=f'{config["scripts"]}/{WORKFLOW}/dl_ena.py',
         ena_IDs=lambda wildcards: sample_to_ena_IDs[wildcards.sample_name],
     shell:
-        f"python3 {{params.script}} {output_base}/{{wildcards.dataset_name}}/{{wildcards.sample_name}} {{params.ena_IDs}}"
+        f"python3 {{params.script}} {{params.ena_IDs}} {output_base}/{{wildcards.dataset_name}}/{{wildcards.sample_name}}"
