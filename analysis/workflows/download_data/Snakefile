@@ -19,6 +19,9 @@ configfile: "analysis/configs/common.yaml"
 configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
+container: config["container"]
+
+
 include: "../common_utils.py"
 include: "utils.py"
 
