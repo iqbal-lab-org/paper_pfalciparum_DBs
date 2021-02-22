@@ -19,7 +19,6 @@ configfile: "analysis/configs/common.yaml"
 configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
-container: config["container"]
 
 
 include: "../common_utils.py"
@@ -88,6 +87,9 @@ rule download_data_subsample_reads:
     params:
         genome_size=lambda wildcards: get_genome_size(wildcards.dataset_name),
         max_coverage=config["subsampling_maxcov"],
+    container: config["container_gramtools"]
+    resources:
+        mem_mb=4000,
     shell:
         "rasusa -i {input.ir1} -i {input.ir2} --coverage {params.max_coverage} --genome-size {params.genome_size} -o {output.or1} -o {output.or2}"
 
@@ -100,6 +102,9 @@ rule download_data_trim_reads:
         or1=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_1.final.fastq.gz",
         or2=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_2.final.fastq.gz",
     threads: 4
+    container: config["container_gramtools"]
+    resources:
+        mem_mb=10000,
     shell:
         "java -jar /software/Trimmomatic-0.36/trimmomatic-0.36.jar PE -threads {threads} {input.ir1} {input.ir2} {output.or1} /dev/null {output.or2} /dev/null ILLUMINACLIP:/software/Trimmomatic-0.36/adapters/TruSeq3-PE-2.fa:2:30:10 LEADING:10 TRAILING:10 SLIDINGWINDOW:4:15 MINLEN:50"
 

@@ -45,7 +45,7 @@ def load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
         for row in reader:
-            if row["sample_name"].startswith("#"):
+            if row["sample_name"].startswith("#") or '3D7' in row["sample_name"]:
                 continue
             ena_IDs = row["ENA_sample_accession_ILMN"]
             result.append(ENARecord("pacb_ilmn_pf", row["sample_name"], ena_IDs))
