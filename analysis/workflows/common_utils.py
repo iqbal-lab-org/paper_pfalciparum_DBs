@@ -32,9 +32,8 @@ def get_gmtools_commit():
     return GMTOOLS_COMMIT
 
 
-def mk_output_dirs():
+def mk_output_dirs(variables):
     """For each variable starting with 'output', makes the directory name it holds"""
-    variables = dir()
     for variable in filter(lambda name: name.startswith("output"), variables):
         Path(eval(variable)).mkdir(exist_ok=True, parents=True)
 

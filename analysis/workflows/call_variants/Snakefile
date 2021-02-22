@@ -1,0 +1,75 @@
+"""
+This workflow calls variants using the [clockwork](https://github.com/iqbal-lab-org/clockwork)
+approach: trim reads, map them to linear ref, var call with samtools and cortex, and adjudicate
+(=get consensus calls) using [minos](https://github.com/iqbal-lab-org/minos).
+"""
+
+from pathlib import Path
+
+WORKFLOW = "call_variants"
+DL_WORKFLOW = "download_data"
+
+
+configfile: "analysis/configs/common.yaml"
+configfile: f"analysis/configs/{WORKFLOW}.yaml"
+configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
+
+
+include: f"../{DL_WORKFLOW}/utils.py"
+include: f"../common_utils.py"
+
+
+container: config["container_minos"]
+
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_ref_genomes = Path(f"{output_base}/ref_genomes")
+mk_output_dirs(dir())
+
+# ena_records = load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"]) + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+
+
+rule all:
+    input:
+        minos_calls=expand(
+            f"{output_base}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf",
+            record=ena_records,
+        ),
+
+
+rule cv_index_ref_genome:
+    input:
+        input_genome=f"{config['output_dir']}/{DL_WORKFLOW}/ref_genomes/{{genome}}{config['ref_genomes']['extension']}",
+    output:
+        # Directory path required for minos variant calling
+        directory(f"{output_ref_genomes}/{{genome}}"),
+        # Stampy index is last thing to be built, so good sign of completion
+        f"{output_ref_genomes}/{{genome}}/ref.stampy.stidx",
+    resources:
+        mem_mb=5000,
+    shell:
+        "minospb index_ref_genome {input.input_genome} {output[0]}"
+
+
+rule cv_run_minos:
+    input:
+        reads=expand(
+            "{DL_WORKFLOW_OUT}/{{dataset_name}}/{{sample_name}}/reads_{i}.final.fastq.gz",
+            DL_WORKFLOW_OUT=f'{config["output_dir"]}/{DL_WORKFLOW}',
+            i=[1, 2],
+        ),
+        genome_name=(
+            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}'
+        ),
+    output:
+        f"{output_base}/{{dataset_name}}/{{sample_name}}/final.vcf",
+    params:
+        outdir=f"{output_base}/{{dataset_name}}/{{sample_name}}",
+    shell:
+        f"""
+        minospb run_one_sample --clockwork --minos_ref_splits 100 \
+                {{wildcards.sample_name}} {{params.outdir}} \
+                {{input.genome_name}} \
+                dummy.fa {{input.reads}}
+        """
