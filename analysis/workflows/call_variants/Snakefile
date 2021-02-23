@@ -47,9 +47,12 @@ rule cv_index_ref_genome:
         # Stampy index is last thing to be built, so good sign of completion
         f"{output_ref_genomes}/{{genome}}/ref.stampy.stidx",
     resources:
-        mem_mb=5000,
+        mem_mb=10000,
     shell:
-        "minospb index_ref_genome {input.input_genome} {output[0]}"
+        """
+        rm -r {output[0]}
+        minospb index_ref_genome {input.input_genome} {output[0]}
+        """
 
 
 rule cv_run_minos:
@@ -59,17 +62,24 @@ rule cv_run_minos:
             DL_WORKFLOW_OUT=f'{config["output_dir"]}/{DL_WORKFLOW}',
             i=[1, 2],
         ),
-        genome_name=(
+        indexed_genome=(
             lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}'
+        ),
+        finished_indexed_genome=(
+            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}/ref.stampy.stidx'
         ),
     output:
         f"{output_base}/{{dataset_name}}/{{sample_name}}/final.vcf",
     params:
         outdir=f"{output_base}/{{dataset_name}}/{{sample_name}}",
+    threads: 4
+    resources:
+        mem_mb=10000,
     shell:
         f"""
         minospb run_one_sample --clockwork --minos_ref_splits 100 \
                 {{wildcards.sample_name}} {{params.outdir}} \
-                {{input.genome_name}} \
+                {{input.indexed_genome}} \
                 dummy.fa {{input.reads}}
+        ln -s $(realpath {{params.outdir}}/Merge_calls/minos/final.vcf) {{output}}
         """
