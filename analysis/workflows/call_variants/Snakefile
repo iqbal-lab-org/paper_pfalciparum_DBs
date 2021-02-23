@@ -1,25 +1,34 @@
 """
 This workflow calls variants using the [clockwork](https://github.com/iqbal-lab-org/clockwork)
-approach: trim reads, map them to linear ref, var call with samtools and cortex, and adjudicate
-(=get consensus calls) using [minos](https://github.com/iqbal-lab-org/minos).
+approach: var call with samtools and cortex, and adjudicate (=get consensus calls) using gramtools.
 """
 
 from pathlib import Path
 
 WORKFLOW = "call_variants"
 DL_WORKFLOW = "download_data"
+ds_to_ref = {"pf6": "Pfalciparum", "pvgv": "PvivaxP01", "pacb_ilmn_pf": "Pfalciparum"}
+genome_ext = ".genome.fasta.gz"
 
 
 configfile: "analysis/configs/common.yaml"
-configfile: f"analysis/configs/{WORKFLOW}.yaml"
 configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
+
+
+DL_WORKFLOW_OUT = f'{config["output_dir"]}/{DL_WORKFLOW}'
+get_reads = lambda wcards: (
+    [
+        f"{DL_WORKFLOW_OUT}/{wcards.dataset_name}/{wcards.sample_name}/reads_{i}.final.fastq.gz"
+        for i in [1, 2]
+    ]
+)
 
 
 include: f"../{DL_WORKFLOW}/utils.py"
 include: f"../common_utils.py"
 
 
-container: config["container_minos"]
+container: config["container_gramtools"]
 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
@@ -32,54 +41,87 @@ ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 
 rule all:
     input:
-        minos_calls=expand(
-            f"{output_base}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf",
+        gramtools_genotyping=expand(
+            f"{output_base}/{{record.dataset_name}}/{{record.sample_name}}/gramtools_final.vcf.gz",
             record=ena_records,
         ),
 
 
 rule cv_index_ref_genome:
     input:
-        input_genome=f"{config['output_dir']}/{DL_WORKFLOW}/ref_genomes/{{genome}}{config['ref_genomes']['extension']}",
+        input_genome=f"{DL_WORKFLOW_OUT}/ref_genomes/{{genome}}{genome_ext}",
     output:
-        # Directory path required for minos variant calling
-        directory(f"{output_ref_genomes}/{{genome}}"),
-        # Stampy index is last thing to be built, so good sign of completion
-        f"{output_ref_genomes}/{{genome}}/ref.stampy.stidx",
+        idx_dir=directory(f"{output_ref_genomes}/{{genome}}"),
+        idx_prefix=f"{output_ref_genomes}/{{genome}}/ref",
+        finished_idx_file=f"{output_ref_genomes}/{{genome}}/ref.bwt",
     resources:
-        mem_mb=10000,
+        mem_mb=4000,
     shell:
         """
-        rm -r {output[0]}
-        minospb index_ref_genome {input.input_genome} {output[0]}
+        mkdir -p {output.idx_dir}
+        cp {input} {output.idx_prefix}
+        bwa index {output.idx_prefix}
         """
 
 
-rule cv_run_minos:
+rule cv_run_samtools:
     input:
-        reads=expand(
-            "{DL_WORKFLOW_OUT}/{{dataset_name}}/{{sample_name}}/reads_{i}.final.fastq.gz",
-            DL_WORKFLOW_OUT=f'{config["output_dir"]}/{DL_WORKFLOW}',
-            i=[1, 2],
+        idx_prefix=(
+            lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref"
         ),
-        indexed_genome=(
-            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}'
+        finished_idx_file=(
+            lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref.bwt"
         ),
-        finished_indexed_genome=(
-            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}/ref.stampy.stidx'
-        ),
+        reads=get_reads,
     output:
-        f"{output_base}/{{dataset_name}}/{{sample_name}}/final.vcf",
-    params:
-        outdir=f"{output_base}/{{dataset_name}}/{{sample_name}}",
+        f"{output_base}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
     threads: 4
     resources:
-        mem_mb=10000,
+        mem_mb=4000,
+    params:
+        samtools_script=f'{config["scripts"]}/{WORKFLOW}/run_samtools.sh',
     shell:
-        f"""
-        minospb run_one_sample --clockwork --minos_ref_splits 100 \
-                {{wildcards.sample_name}} {{params.outdir}} \
-                {{input.indexed_genome}} \
-                dummy.fa {{input.reads}}
-        ln -s $(realpath {{params.outdir}}/Merge_calls/minos/final.vcf) {{output}}
+        "bash {params.samtools_script} {input.idx_prefix} '{input.reads}' {output} {threads}"
+
+
+rule cv_run_cortex:
+    input:
+        ref_genome=(
+            lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
+        ),
+        reads=get_reads,
+    output:
+        f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
+    resources:
+        mem_mb=8000,
+    params:
+        cortex_script=f'{config["scripts"]}/{WORKFLOW}/run_cortex.py',
+        vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf",
+    shell:
+        """
+        python3 {params.cortex_script} {input.ref_genome} '{input.reads}' {params.vcf}
+        bgzip {params.vcf}
+        """
+
+
+rule cv_gramtools_adjudicate:
+    input:
+        ref_genome=(
+            lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
+        ),
+        samtools_vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
+        cortex_vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
+        reads=get_reads,
+    output:
+        f"{output_base}/{{dataset_name}}/{{sample_name}}/gramtools_final.vcf.gz",
+    shadow:
+        "shallow"
+    threads: 10
+    resources:
+        mem_mb=4000,
+    shell:
+        """
+        gramtools build --ref {input.ref_genome} --vcf {input.samtools_vcf} --vcf {input.cortex_vcf} --kmer_size 12 -o gram
+        gramtools genotype --max_threads {threads} -i gram -o genotype --reads {input.reads} --sample_id {wildcards.sample_name}
+        mv genotype/genotype/*.vcf.gz {output}
         """

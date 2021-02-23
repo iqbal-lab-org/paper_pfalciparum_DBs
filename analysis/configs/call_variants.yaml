@@ -1,8 +1,0 @@
-ref_genomes:
-    list: ["Pfalciparum","PvivaxP01"]
-    pf6: "Pfalciparum"
-    pvgv: "PvivaxP01"
-    pacb_ilmn_pf: "Pfalciparum"
-    extension: ".genome.fasta.gz"
-
-
