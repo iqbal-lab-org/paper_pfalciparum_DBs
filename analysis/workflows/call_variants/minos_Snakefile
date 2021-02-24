@@ -8,10 +8,11 @@ from pathlib import Path
 
 WORKFLOW = "call_variants"
 DL_WORKFLOW = "download_data"
+ds_to_ref = {"pf6": "Pfalciparum", "pvgv": "PvivaxP01", "pacb_ilmn_pf": "Pfalciparum"}
+genome_ext = ".genome.fasta.gz"
 
 
 configfile: "analysis/configs/common.yaml"
-configfile: f"analysis/configs/{WORKFLOW}.yaml"
 configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
 
 
@@ -22,7 +23,7 @@ include: f"../common_utils.py"
 container: config["container_minos"]
 
 
-output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}/minospb')
 output_ref_genomes = Path(f"{output_base}/ref_genomes")
 mk_output_dirs(dir())
 
@@ -40,7 +41,7 @@ rule all:
 
 rule cv_index_ref_genome:
     input:
-        input_genome=f"{config['output_dir']}/{DL_WORKFLOW}/ref_genomes/{{genome}}{config['ref_genomes']['extension']}",
+        input_genome=f"{config['output_dir']}/{DL_WORKFLOW}/ref_genomes/{{genome}}{genome_ext}",
     output:
         # Directory path required for minos variant calling
         directory(f"{output_ref_genomes}/{{genome}}"),
@@ -63,10 +64,10 @@ rule cv_run_minos:
             i=[1, 2],
         ),
         indexed_genome=(
-            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}'
+            lambda wildcards: f'{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}'
         ),
         finished_indexed_genome=(
-            lambda wildcards: f'{output_ref_genomes}/{config["ref_genomes"][wildcards.dataset_name]}/ref.stampy.stidx'
+            lambda wildcards: f'{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref.stampy.stidx'
         ),
     output:
         f"{output_base}/{{dataset_name}}/{{sample_name}}/final.vcf",
@@ -76,10 +77,11 @@ rule cv_run_minos:
     resources:
         mem_mb=10000,
     shell:
+        # 'sample' used as sample name to avoid file copying error
         f"""
         minospb run_one_sample --clockwork --minos_ref_splits 100 \
-                {{wildcards.sample_name}} {{params.outdir}} \
+                sample {{params.outdir}} \
                 {{input.indexed_genome}} \
                 dummy.fa {{input.reads}}
-        ln -s $(realpath {{params.outdir}}/Merge_calls/minos/final.vcf) {{output}}
+        ln -s ./Merge_calls/minos/final.vcf {{output}}
         """

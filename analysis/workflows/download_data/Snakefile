@@ -30,10 +30,8 @@ output_pacb_pf_assemblies = Path(
 )
 mk_output_dirs(dir())
 
-# ena_records = load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"]) + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]) + load_pvgv(
-    config["pvgv_tsv"]
-)
+ena_records = load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"]) + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+#ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]) + load_pvgv(config["pvgv_tsv"])
 sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
 pacb_pf_fnames = [
     f"{record.sample_name}.April2018.fasta.gz"
