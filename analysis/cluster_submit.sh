@@ -5,7 +5,7 @@ set -e
 WORKFLOW=$1
 
 function usage(){
-    echo "usage: $0 workflow_name"
+    echo "usage: $0 workflow_name [no_singu]"
     exit 1
 }
 
@@ -20,7 +20,6 @@ SINGULARITY_BINDS="/hps/nobackup/iqbal,/nfs/research/zi,${TMPDIR}:/scratch,${TMP
 #SINGULARITY_BINDS="/hps/nobackup2/iqbal,/nfs/leia/research/iqbal,${TMPDIR}:/scratch" # yoda
 SINGULARITY_ARGS="--contain --bind $SINGULARITY_BINDS"
 
-# In case snakemake --singularity-args fails, can use environment variables too
 export SINGULARITY_CONTAIN=TRUE
 export SINGULARITY_BINDPATH="$SINGULARITY_BINDS"
 
@@ -28,12 +27,15 @@ LOG_DIR="analysis/logs"
 mkdir -p "${LOG_DIR}"
 MEMORY=5000
 
-bsub -R "select[mem>$MEMORY] rusage[mem=$MEMORY] span[hosts=1]" \
+cmd='bsub -R "select[mem>$MEMORY] rusage[mem=$MEMORY] span[hosts=1]" \
     -M "$MEMORY" \
     -o "${LOG_DIR}/${WORKFLOW}.o" \
     -e "${LOG_DIR}/${WORKFLOW}.e" \
     -J "${WORKFLOW}_snakemake" \
     snakemake -s analysis/workflows/${WORKFLOW}/Snakefile \
-    --profile lsf --verbose --latency-wait 25 \
-    --use-singularity --keep-going #--singularity-args "$SINGULARITY_ARGS"
+    --profile lsf --verbose --latency-wait 25 --keep-going'
+if [[ "$2" != "no_singu" ]]; then cmd="${cmd} --use-singularity"; fi 
+#Note: pass args to singu via '--singularity-args "$SINGULARITY_ARGS"'.
+# The environment variables (SINGULARITY_CONTAIN, SINGULARITY_BINDPATH) replace need for this.
 
+eval "$cmd"

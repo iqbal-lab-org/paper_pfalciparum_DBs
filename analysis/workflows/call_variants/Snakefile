@@ -32,8 +32,11 @@ container: config["container_gramtools"]
 
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
-output_base = Path(f'{config["output_dir"]}/{WORKFLOW}/gram_{GMTOOLS_COMMIT}')
-output_ref_genomes = Path(f'{config["output_dir"]}/{WORKFLOW}/ref_genomes')
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_gramtools = Path(f'{output_base}/gram_{GMTOOLS_COMMIT}')
+output_samtools = Path(f'{output_base}/samtools')
+output_cortex = Path(f'{output_base}/cortex')
+output_ref_genomes = Path(f'{output_base}/ref_genomes')
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
@@ -44,7 +47,7 @@ ena_records = pacb_ilmn_records
 rule all:
     input:
         gramtools_genotyping=expand(
-            f"{output_base}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
+            f"{output_gramtools}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
             record=ena_records,
         ),
 
@@ -76,7 +79,7 @@ rule cv_run_samtools:
         ),
         reads=get_reads,
     output:
-        f"{output_base}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
+        f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
     threads: 4
     shadow: "shallow"
     resources:
@@ -97,13 +100,13 @@ rule cv_run_cortex:
         ),
         reads=get_reads,
     output:
-        f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
+        f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
     resources:
         mem_mb=12000,
     shadow: "shallow",
     params:
         cortex_script=f'{config["scripts"]}/{WORKFLOW}/run_cortex.py',
-        vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf",
+        vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf",
     shell:
         """
         gzip -dc {input.ref_genome} > ref.fa # Cortex cannot run on gzipped reference
@@ -117,11 +120,13 @@ rule cv_gramtools_adjudicate:
         ref_genome=(
             lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
         ),
-        samtools_vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
-        cortex_vcf=f"{output_base}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
+        samtools_vcf=f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
+        cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
         reads=get_reads,
     output:
-        f"{output_base}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        build_rep=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/build_report.json",
+        geno_rep=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/genotype_report.json",
     shadow:
         "shallow"
     threads: 10
@@ -131,5 +136,7 @@ rule cv_gramtools_adjudicate:
         """
         gramtools build --ref {input.ref_genome} --vcf {input.samtools_vcf} --vcf {input.cortex_vcf} --kmer_size 12 -o gram
         gramtools genotype --max_threads {threads} -i gram -o genotype --reads {input.reads} --sample_id {wildcards.sample_name}
-        mv genotype/genotype/*.vcf.gz {output}
+        mv genotype/genotype/*.vcf.gz {output.vcf}
+        mv gram/build_report.json {output.build_rep}
+        mv genotype/genotype_report.json {output.geno_rep}
         """

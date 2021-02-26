@@ -12,4 +12,11 @@ fasta_ref = Path(sys.argv[1]).resolve()
 reads_files = sys.argv[2].split(" ")
 out_vcf = Path(sys.argv[3])
 
-cortex.run(fasta_ref, reads_files, out_vcf, mem_height=22, tmp_directory="./cortex")
+cortex.run(
+    fasta_ref,
+    reads_files,
+    out_vcf,
+    mem_height=22,
+    tmp_directory=out_vcf.parent,
+    cleanup=False,
+)
