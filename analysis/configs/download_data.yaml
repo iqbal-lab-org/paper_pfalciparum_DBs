@@ -8,4 +8,7 @@ ref_genomes:
     genomes: ["PvivaxP01", "Pfalciparum"]
     extensions: [".genome.fasta.gz", ".gff3.gz"]
 
+gene_list_dir: "analysis/input_data/gene_lists"
+gene_list_names: ["pf6_25_genes"]
+
 subsampling_maxcov: 60
