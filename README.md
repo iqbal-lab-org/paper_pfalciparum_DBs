@@ -7,7 +7,36 @@ The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
 
 # Workflows
 
+## Running a workflow
+
+To run a workflow, ... [TODO]
+
+## List of workflows
+
+### download_data
+
+### call_variants
+
+### eval_varcalls
+
+
+## Development
+
+To avoid rebuilding a container everytime a different version of the gramtools codebase is tested, it is installed locally:
+
+```
+. venv/bin/activate
+pip install -e <path/to/gramtools>
+```
+
+This means the file pyrequirements.txt should not be produced by running `pip freeze > pyrequirements.txt`.
+
+
 # Genes
+
+## P. falciparum
+
+See the [documentation](docs/pf_genes.pdf) for a list and rationale for the genes we chose to analyse.
 
 ## Barry lab
 
