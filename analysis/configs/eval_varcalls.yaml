@@ -1,0 +1,6 @@
+gene_bed_dir: "analysis/outputs/download_data/gene_beds"
+ref_genome_dir: "analysis/outputs/download_data/ref_genomes"
+assemblies_dir: "analysis/outputs/download_data/pacb_ilmn_pf/assemblies"
+varcall_dir: "analysis/outputs/call_variants"
+pf6_gene_lists: ["pf6_25_genes"]
+

@@ -6,7 +6,7 @@ pacb_pf_ftp: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/Plasmodium/falciparum
 ref_genomes:
     ftp_root: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/"
     genomes: ["PvivaxP01", "Pfalciparum"]
-    extensions: [".genome.fasta.gz", ".gff3.gz"]
+    extensions: [".genome.fasta.gz", ".genome.fasta.gz.fai", ".gff3.gz"]
 
 gene_list_dir: "analysis/input_data/gene_lists"
 gene_list_names: ["pf6_25_genes"]

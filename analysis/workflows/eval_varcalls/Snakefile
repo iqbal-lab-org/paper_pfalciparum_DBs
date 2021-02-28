@@ -1,0 +1,129 @@
+WORKFLOW = "eval_varcalls"
+DL_WORKFLOW = "download_data"
+CV_WORKFLOW = "call_variants"
+
+
+configfile: "analysis/configs/common.yaml"
+configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
+configfile: f"analysis/configs/{WORKFLOW}.yaml"
+
+
+include: f"../{DL_WORKFLOW}/utils.py"
+include: f"../common_utils.py"
+
+
+container: config["container_gramtools"]
+
+
+GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_pif = output_base / "pacb_ilmn_pf"
+output_varifier_pf = output_pif / "varifier"
+output_bowtie2_pf = output_pif / "bowtie2"
+output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
+mk_output_dirs(dir())
+
+pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
+bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
+
+
+rule all:
+    input:
+        varifier_pf_validation=expand(
+            f"{output_varifier_pf}/{{adjudicator}}_{{sample_name}}.json",
+            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}"],
+            sample_name=pacb_ilmn_snames,
+        ),
+        bowtie2_pf_validation=expand(
+            f"{output_bowtie2_pf}/{{gene_list}}/{{adjudicator}}/stats.tsv",
+            gene_list=config["pf6_gene_lists"],
+            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}"],
+        ),
+
+
+rule ev_index_pacb_assemblies:
+    input:
+        assembly=get_assembly,
+    output:
+        expand(
+            f"{output_bowtie2_indexes}/{{sample_name}}.{{ext}}",
+            ext=bowtie2_idx_extensions,
+            allow_missing=True,
+        ),
+    params:
+        directory=f"{output_bowtie2_indexes}/{{sample_name}}",
+    shell:
+        "bowtie2-build {input.assembly[0]} {params.directory}"
+
+
+rule ev_bowtie2_pf_map:
+    input:
+        truth_ref_idx=rules.ev_index_pacb_assemblies.output,
+        ref_genome=(
+            lambda wildcards: f'{config["ref_genome_dir"]}/{gene_list_to_genome(wildcards)}.genome.fasta.gz'
+        ),
+        var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+        vcf=f'{config["varcall_dir"]}/{{adjudicator}}/pacb_ilmn_pf/{{sample_name}}/final.vcf.gz',
+    output:
+        f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
+    params:
+        idx_prefix=f"{output_bowtie2_indexes}/{{sample_name}}",
+    shadow:
+        "shallow"
+    resources:
+        mem_mb=5000,
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        > gene_portions.fa
+        bcftools norm -c x -f {input.ref_genome} {input.vcf} -Oz > clean.vcf.gz
+        bcftools index clean.vcf.gz
+        IFS="\n"; for gene_line in $(cat ${input.var_regions})
+        do
+            IFS="\t"; elems=($gene_line)    
+            adjusted_start=$((${{elems[1]}} + 1))
+            reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
+            gene_name=${{elems[3]}}
+            samtools faidx {input.ref_genome} $reg | bcftools consensus clean.vcf.gz |
+                sed 's/>.*/>'${{gene_name}}'/' >> gene_portions.fa
+        done
+
+        bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output.alignment_file}
+        """
+
+
+rule ev_bowtie2_pf_stats:
+    input:
+        alignments=expand(
+            f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
+            sample_name=pacb_ilmn_snames,
+            allow_missing=True,
+        ),
+        var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+    output:
+        f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/stats.tsv",
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
+    shell:
+        "python3 {param.script} {input.alignments} {input.var_regions} {output}"
+
+
+rule ev_varifier_validation:
+    input:
+        ref_genome=f'{config["ref_genome_dir"]}/Pfalciparum.genome.fasta.gz',
+        vcf=f'{config["varcall_dir"]}/{{adjudicator}}/pacb_ilmn_pf/{{sample_name}}/final.vcf.gz',
+        assembly=get_assembly,
+    output:
+        f"{output_varifier_pf}/{{adjudicator}}_{{sample_name}}.json",
+    container:
+        config["container_minos"]
+    resources:
+        mem_mb=5000,
+    shadow:
+        "shallow"
+    shell:
+        """
+        varifer vcf_eval --no_maxmatch {input.assembly} {input.ref_genome {input.vcf} ./varifier
+        cp ./varifier/summary_stats.json {output}
+        """

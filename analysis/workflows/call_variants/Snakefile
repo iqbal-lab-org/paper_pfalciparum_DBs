@@ -33,14 +33,14 @@ container: config["container_gramtools"]
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
-output_gramtools = Path(f'{output_base}/gram_{GMTOOLS_COMMIT}')
-output_samtools = Path(f'{output_base}/samtools')
-output_cortex = Path(f'{output_base}/cortex')
-output_ref_genomes = Path(f'{output_base}/ref_genomes')
+output_gramtools = output_base / f"gram_{GMTOOLS_COMMIT}"
+output_samtools = output_base / "samtools"
+output_cortex = output_base / "cortex"
+output_ref_genomes = output_base / "ref_genomes"
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-# ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"]) 
+# ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"])
 ena_records = pacb_ilmn_records
 
 
@@ -81,7 +81,8 @@ rule cv_run_samtools:
     output:
         f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
     threads: 4
-    shadow: "shallow"
+    shadow:
+        "shallow"
     resources:
         mem_mb=4000,
     params:
@@ -103,7 +104,8 @@ rule cv_run_cortex:
         f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
     resources:
         mem_mb=12000,
-    shadow: "shallow",
+    shadow:
+        "shallow"
     params:
         cortex_script=f'{config["scripts"]}/{WORKFLOW}/run_cortex.py',
         vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf",
@@ -120,13 +122,19 @@ rule cv_gramtools_adjudicate:
         ref_genome=(
             lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
         ),
-        samtools_vcf=f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
+        samtools_vcf=(
+            f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz"
+        ),
         cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
         reads=get_reads,
     output:
         vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
-        build_rep=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/build_report.json",
-        geno_rep=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/genotype_report.json",
+        build_rep=(
+            f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/build_report.json"
+        ),
+        geno_rep=(
+            f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/genotype_report.json"
+        ),
     shadow:
         "shallow"
     threads: 10

@@ -34,17 +34,7 @@ ena_records = (
     + load_pvgv(config["pvgv_tsv"])
     + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 )
-# ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-
-
-def gene_list_to_genome(wildcards):
-    if "pf6" in wildcards.gene_list_name:
-        return "Pfalciparum"
-    elif "pvgv" in wildcards.gene_list_name:
-        return "PvivaxP01"
-    else:
-        raise ValueError(f"wildcards.{gene_list_name} not in {{pf6, pvgv}}")
-
+ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 
 sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
 pacb_pf_fnames = [
@@ -129,21 +119,33 @@ rule download_data_trim_reads:
 
 rule download_data_pacb_pf_assemblies:
     output:
-        expand(
-            f"{output_pacb_pf_assemblies}/{{assembly_fname}}",
-            assembly_fname=pacb_pf_fnames,
-        ),
+        rules.all.input.pacb_pf_assemblies,
     shell:
         f"wget {config['pacb_pf_ftp']} -nc -P {output_pacb_pf_assemblies}"
 
 
 rule download_data_ref_genomes:
     wildcard_constraints:
-        extension="\..+",
+        extension="\.(genome.fasta.gz|gff3.gz)",
     output:
         f"{output_ref_genomes}/{{genome}}{{extension}}",
     shell:
         f"wget {config['ref_genomes']['ftp_root']}/{{wildcards.genome}}{{wildcards.extension}} -P {output_ref_genomes}"
+
+
+rule download_data_index_ref_genomes:
+    input:
+        f"{output_ref_genomes}/{{genome}}.fasta.gz",
+    output:
+        f"{output_ref_genomes}/{{genome}}.fasta.gz.fai",
+    shell:
+        """
+        input={input}
+        bgzip -d {input}
+        to_gzip="${{input/.gz/}}"
+        bgzip "$to_gzip"
+        samtools faidx {input}
+        """
 
 
 rule download_data_make_gene_bed:

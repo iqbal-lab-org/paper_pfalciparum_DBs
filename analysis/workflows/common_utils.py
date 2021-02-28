@@ -32,6 +32,24 @@ def get_gmtools_commit(container: str):
     return GMTOOLS_COMMIT
 
 
+def gene_list_to_genome(wildcards):
+    if "pf6" in wildcards.gene_list_name:
+        return "Pfalciparum"
+    elif "pvgv" in wildcards.gene_list_name:
+        return "PvivaxP01"
+    else:
+        raise ValueError(f"wildcards.{gene_list_name} not in {{pf6, pvgv}}")
+
+
+def get_assembly(wildcards):
+    assembly = glob(f'{config["assemblies_dir"]}/{wildcards.sample_name}*.fasta.gz')
+    if len(assembly) != 1:
+        raise ValueError(
+            f'Error: expected one assembly for sample {wildcards.sample} in {config["assemblies_dir"]}, found {assembly}'
+        )
+    return assembly
+
+
 def mk_output_dirs(variables):
     """For each variable starting with 'output', makes the directory name it holds"""
     for variable in filter(lambda name: name.startswith("output"), variables):
