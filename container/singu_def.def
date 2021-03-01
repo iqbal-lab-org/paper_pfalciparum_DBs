@@ -95,6 +95,9 @@ From: ubuntu:focal
 	cp bowtie2-2.4.1-linux-x86_64/bowtie* /usr/bin/ && rm -r bowtie2-2.4.1-linux-x86_64*
 
 
+	## bedtools
+	cd ${HOME}
+	wget -O /usr/bin/bedtools https://github.com/arq5x/bedtools2/releases/download/v2.29.2/bedtools.static.binary && chmod a+x /usr/bin/bedtools
     ##### Currently tested ends here #######
 
     # R requirements of repo
@@ -118,9 +121,6 @@ From: ubuntu:focal
 
 	
 
-	## bedtools
-	cd ${HOME}
-	wget -O /usr/bin/bedtools https://github.com/arq5x/bedtools2/releases/download/v2.29.2/bedtools.static.binary && chmod a+x /usr/bin/bedtools
 
 	## mafft (multiple seq alignments)
 	cd ${HOME}

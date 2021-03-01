@@ -1,3 +1,9 @@
+"""
+Evaluates calls produced by gramtools:
+- Uses the 14 samples with PACB assemblies and paired ILMN reads to validate the gramtools-adjudicated calls made using the ILMN reads.
+- Compares GATK-produced vcfs (either by MalariaGEN on pf6, or Barry lab on pf3k or pvgv) and gramtools-adjudicated vcfs via variant statistics
+"""
+
 WORKFLOW = "eval_varcalls"
 DL_WORKFLOW = "download_data"
 CV_WORKFLOW = "call_variants"
@@ -28,6 +34,13 @@ pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 
+def get_adjudicator_vcf(wildcards):
+    if wildcards.adjudicator == "baseline":
+        return f'{config["input_data"]}/template.vcf.gz'
+    else:
+        return f'{config["varcall_dir"]}/{wildcards.adjudicator}/pacb_ilmn_pf/{wildcards.sample_name}/final.vcf.gz'
+
+
 rule all:
     input:
         varifier_pf_validation=expand(
@@ -36,9 +49,8 @@ rule all:
             sample_name=pacb_ilmn_snames,
         ),
         bowtie2_pf_validation=expand(
-            f"{output_bowtie2_pf}/{{gene_list}}/{{adjudicator}}/stats.tsv",
+            f"{output_bowtie2_pf}/{{gene_list}}/stats.tsv",
             gene_list=config["pf6_gene_lists"],
-            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}"],
         ),
 
 
@@ -64,7 +76,7 @@ rule ev_bowtie2_pf_map:
             lambda wildcards: f'{config["ref_genome_dir"]}/{gene_list_to_genome(wildcards)}.genome.fasta.gz'
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
-        vcf=f'{config["varcall_dir"]}/{{adjudicator}}/pacb_ilmn_pf/{{sample_name}}/final.vcf.gz',
+        vcf=get_adjudicator_vcf,
     output:
         f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
     params:
@@ -79,17 +91,17 @@ rule ev_bowtie2_pf_map:
         > gene_portions.fa
         bcftools norm -c x -f {input.ref_genome} {input.vcf} -Oz > clean.vcf.gz
         bcftools index clean.vcf.gz
-        IFS="\n"; for gene_line in $(cat ${input.var_regions})
+        IFS="\n"; for gene_line in $(cat {input.var_regions})
         do
             IFS="\t"; elems=($gene_line)    
             adjusted_start=$((${{elems[1]}} + 1))
             reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
             gene_name=${{elems[3]}}
             samtools faidx {input.ref_genome} $reg | bcftools consensus clean.vcf.gz |
-                sed 's/>.*/>'${{gene_name}}'/' >> gene_portions.fa
+                sed 's@>.*@>'"${{gene_name}}"'@' >> gene_portions.fa
         done
 
-        bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output.alignment_file}
+        bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output}
         """
 
 
@@ -98,15 +110,18 @@ rule ev_bowtie2_pf_stats:
         alignments=expand(
             f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
             sample_name=pacb_ilmn_snames,
+            # baseline: runs mapping on an empty vcf, giving a baseline to compare adjudicators to
+            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}", "baseline"],
             allow_missing=True,
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
     output:
-        f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/stats.tsv",
+        f"{output_bowtie2_pf}/{{gene_list_name}}/stats.tsv",
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
+        alignments_dir=f"{output_bowtie2_pf}/{{gene_list_name}}",
     shell:
-        "python3 {param.script} {input.alignments} {input.var_regions} {output}"
+        "python3 {params.script} {params.alignments_dir} {input.var_regions} {output}"
 
 
 rule ev_varifier_validation:
@@ -124,6 +139,8 @@ rule ev_varifier_validation:
         "shallow"
     shell:
         """
-        varifer vcf_eval --no_maxmatch {input.assembly} {input.ref_genome {input.vcf} ./varifier
+        gzip -dc {input.assembly} > assembly.fa
+        gzip -dc {input.ref_genome} > ref.fa
+        varifier vcf_eval --no_maxmatch assembly.fa ref.fa {input.vcf} ./varifier
         cp ./varifier/summary_stats.json {output}
         """

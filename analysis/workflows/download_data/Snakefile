@@ -34,7 +34,6 @@ ena_records = (
     + load_pvgv(config["pvgv_tsv"])
     + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 )
-ena_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 
 sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
 pacb_pf_fnames = [
@@ -138,6 +137,8 @@ rule download_data_index_ref_genomes:
         f"{output_ref_genomes}/{{genome}}.fasta.gz",
     output:
         f"{output_ref_genomes}/{{genome}}.fasta.gz.fai",
+    container:
+        config["container_gramtools"]
     shell:
         """
         input={input}
@@ -156,6 +157,8 @@ rule download_data_make_gene_bed:
         ),
     output:
         gene_bed=f"{output_gene_beds}/{{gene_list_name}}.bed",
+    container:
+        config["container_gramtools"]
     params:
         gff_to_bed_script=f'{config["scripts"]}/{WORKFLOW}/gff_to_bed.sh',
     shell:
