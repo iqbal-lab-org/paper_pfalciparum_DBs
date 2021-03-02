@@ -56,6 +56,22 @@ def mk_output_dirs(variables):
         Path(eval(variable)).mkdir(exist_ok=True, parents=True)
 
 
+def get_reads(wildcards):
+    return [
+        f'{config["dl_output_dir"]}/{wildcards.dataset_name}/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
+        for i in [1, 2]
+    ]
+
+
+def get_ref_genome(wildcards):
+    ds_to_ref = {
+        "pf6": "Pfalciparum",
+        "pvgv": "PvivaxP01",
+        "pacb_ilmn_pf": "Pfalciparum",
+    }
+    return f'{config["dl_output_dir"]}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}.genome.fasta.gz'
+
+
 def find_reads(wildcards) -> List[str]:
     reads_dir = f'{config["ilmn_reads_dir"]}/{wildcards.sample}'
     reads_files = glob(f"{reads_dir}/**/**/*.fastq.gz")

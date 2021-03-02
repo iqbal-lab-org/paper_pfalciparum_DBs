@@ -50,11 +50,10 @@ rule all:
             gene_list=config["pf6_gene_lists"],
         ),
         induced_ref_mapping_stats=expand(
-                f"{output_ir}/{{dataset_name}}/{{gene_list}}/stats.tsv",
-                dataset_name=["pf6"],
-                gene_list=config["pf6_gene_lists"],
+            f"{output_ir}/{{dataset_name}}/{{gene_list}}/stats.tsv",
+            dataset_name=["pf6"],
+            gene_list=config["pf6_gene_lists"],
         ),
-
 
 
 rule ev_index_pacb_assemblies:
@@ -148,27 +147,55 @@ rule ev_varifier_validation:
         cp ./varifier/summary_stats.json {output}
         """
 
+
 rule ev_induced_ref_map_reads:
-    input: #TODO: add reads, bed, vcf
+    input:  #TODO: add vcf
+        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list}}.bed',
+        ref_genome=get_ref_genome,
+        reads=get_reads,
     output:
-        bam=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.bam",
-        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.bai",
-        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.vcf.gz",
+        bam=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bam",
+        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bai",
+        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.vcf.gz",
+    threads: 4
+    shadow:
+        "shallow"
+    resources:
+        mem_mb=4000,
+    shell:
+        """
+        # make vcf subsetted at genes listed in input bed
+        cp {input.vcf} input.vcf.gz
+        bcftools index input.vcf.gz
+        regions=$(awk 'ORS=","{start=$2 - 1;print $1":"start"-"$3}' {input.bed})
+        bcftools view -r "$regions" -s {wildcards.sample_name} -Oz > subsetted.vcf.gz
+        cp subsetted.vcf.gz {output.subsetted_vcf}
+
+        # make induced ref genome and map to it
+        bcftools index subsetted.vcf.gz
+        bgzip -dc {input.ref_genome} | bcftools consensus {output.subsetted_vcf} > induced_ref.fa
+        bwa index induced_ref.fa
+        bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
+        samtools sort -o {output.bam} -O BAM mapped.sam
+        samtools index {output.bam}
+        """
+
 
 rule ev_induced_ref_get_stats:
-    input: #TODO: add bed, vcf, ref_genome
+    input:  #TODO: add bed, vcf, ref_genome
         bam=rules.ev_induced_ref_map_reads.output.bam,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
     output:
-        f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.tsv",
+        f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.tsv",
+
 
 rule ev_induced_ref_collect_stats:
     input:
         expand(
-                f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.tsv",
-                tool=[f"cortex", "barry_lab"],
-                sample=pf6_validation_samples,
-                allow_missing=True,
+            f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.tsv",
+            tool=[f"cortex", "barry_lab"],
+            sample_name=pf6_validation_samples,
+            allow_missing=True,
         ),
     output:
         f"{output_ir}/{{dataset_name}}/{{gene_list}}/stats.tsv",

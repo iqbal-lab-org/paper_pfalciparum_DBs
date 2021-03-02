@@ -7,21 +7,10 @@ from pathlib import Path
 
 WORKFLOW = "call_variants"
 DL_WORKFLOW = "download_data"
-ds_to_ref = {"pf6": "Pfalciparum", "pvgv": "PvivaxP01", "pacb_ilmn_pf": "Pfalciparum"}
-genome_ext = ".genome.fasta.gz"
 
 
 configfile: "analysis/configs/common.yaml"
 configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
-
-
-DL_WORKFLOW_OUT = f'{config["output_dir"]}/{DL_WORKFLOW}'
-get_reads = lambda wcards: (
-    [
-        f"{DL_WORKFLOW_OUT}/{wcards.dataset_name}/{wcards.sample_name}/reads_{i}.final.fastq.gz"
-        for i in [1, 2]
-    ]
-)
 
 
 include: f"../{DL_WORKFLOW}/utils.py"
@@ -51,14 +40,16 @@ rule all:
             record=pacb_ilmn_records,
         ),
         cortex_calling=expand(
-            f"{output_gramtools}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
+            f"{output_cortex}/{{record.dataset_name}}/{{record.sample_name}}/cortex.vcf.gz",
             record=pf6_and_pvgv_records,
         ),
 
 
 rule cv_index_ref_genome:
     input:
-        input_genome=f"{DL_WORKFLOW_OUT}/ref_genomes/{{genome}}{genome_ext}",
+        input_genome=(
+            f'{config["dl_output_dir"]}/ref_genomes/{{genome}}.genome.fasta.gz'
+        ),
     output:
         idx_dir=directory(f"{output_ref_genomes}/{{genome}}"),
         idx_prefix=f"{output_ref_genomes}/{{genome}}/ref",
@@ -100,9 +91,7 @@ rule cv_run_samtools:
 
 rule cv_run_cortex:
     input:
-        ref_genome=(
-            lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
-        ),
+        ref_genome=get_ref_genome,
         reads=get_reads,
     output:
         f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
@@ -123,9 +112,7 @@ rule cv_run_cortex:
 
 rule cv_gramtools_adjudicate:
     input:
-        ref_genome=(
-            lambda wildcards: f"{DL_WORKFLOW_OUT}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}{genome_ext}"
-        ),
+        ref_genome=get_ref_genome,
         samtools_vcf=(
             f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz"
         ),
