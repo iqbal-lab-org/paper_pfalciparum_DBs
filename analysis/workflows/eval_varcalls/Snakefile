@@ -1,7 +1,7 @@
 """
-Evaluates calls produced by gramtools:
-- Uses the 14 samples with PACB assemblies and paired ILMN reads to assess the gramtools-adjudicated calls made using the ILMN reads.
-- Compares GATK-produced vcfs (either by MalariaGEN on pf6, or Barry lab on pf3k or pvgv) and gramtools-adjudicated vcfs via variant statistics
+Evaluates calls produced by various tools:
+- [cortex, gramtools_adjudication, gramtools_joint_genotyping] Uses the 14 samples with PACB assemblies and paired ILMN reads to assess calls made using the ILMN reads.
+- [cortex, GATK Barry lab, GATK pf6 malariaGEN, gramtools_adjudication, gramtools_joint_genotyping] Maps ILMN reads to genome with called variants applied and computes mapping statistics
 """
 
 WORKFLOW = "eval_varcalls"
@@ -14,6 +14,7 @@ configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
 configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
+include: f"../{WORKFLOW}/utils.py"
 include: f"../{DL_WORKFLOW}/utils.py"
 include: f"../common_utils.py"
 
@@ -27,23 +28,14 @@ output_pif = output_base / "pacb_ilmn_pf"
 output_varifier_pf = output_pif / "varifier"
 output_bowtie2_pf = output_pif / "bowtie2"
 output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
+output_ir = output_base / "induced_refs"
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
-
-def get_tool_vcf(wildcards):
-    if wildcards.tool == "baseline":
-        return f'{config["input_data"]}/template.vcf.gz'
-    else:
-        tool_path=f'{config["varcall_dir"]}/{wildcards.tool}/pacb_ilmn_pf/{wildcards.sample_name}/'
-        if wildcards.tool == "cortex":
-            tool_path += "cortex.vcf.gz"
-        else:
-            tool_path += "final.vcf.gz"
-        return tool_path
+pf6_validation_samples = load_pf6_validation(config["pf6_validation_tsv"])
 
 
 rule all:
@@ -57,6 +49,12 @@ rule all:
             f"{output_bowtie2_pf}/{{gene_list}}/stats.tsv",
             gene_list=config["pf6_gene_lists"],
         ),
+        induced_ref_mapping_stats=expand(
+                f"{output_ir}/{{dataset_name}}/{{gene_list}}/stats.tsv",
+                dataset_name=["pf6"],
+                gene_list=config["pf6_gene_lists"],
+        ),
+
 
 
 rule ev_index_pacb_assemblies:
@@ -94,15 +92,15 @@ rule ev_bowtie2_pf_map:
         """
         mkdir -p $(dirname {output})
         > gene_portions.fa
-        bcftools norm -c x -f {input.ref_genome} {input.vcf} -Oz > clean.vcf.gz
-        bcftools index clean.vcf.gz
+        cp {input.vcf} input.vcf.gz
+        bcftools index input.vcf.gz
         IFS="\n"; for gene_line in $(cat {input.var_regions})
         do
             IFS="\t"; elems=($gene_line)    
             adjusted_start=$((${{elems[1]}} + 1))
             reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
             gene_name=${{elems[3]}}
-            samtools faidx {input.ref_genome} $reg | bcftools consensus clean.vcf.gz |
+            samtools faidx {input.ref_genome} $reg | bcftools consensus input.vcf.gz |
                 sed 's@>.*@>'"${{gene_name}}"'@' >> gene_portions.fa
         done
 
@@ -149,3 +147,28 @@ rule ev_varifier_validation:
         varifier vcf_eval --no_maxmatch assembly.fa ref.fa {input.vcf} ./varifier
         cp ./varifier/summary_stats.json {output}
         """
+
+rule ev_induced_ref_map_reads:
+    input: #TODO: add reads, bed, vcf
+    output:
+        bam=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.bam",
+        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.bai",
+        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.vcf.gz",
+
+rule ev_induced_ref_get_stats:
+    input: #TODO: add bed, vcf, ref_genome
+        bam=rules.ev_induced_ref_map_reads.output.bam,
+        vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
+    output:
+        f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.tsv",
+
+rule ev_induced_ref_collect_stats:
+    input:
+        expand(
+                f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample}}.tsv",
+                tool=[f"cortex", "barry_lab"],
+                sample=pf6_validation_samples,
+                allow_missing=True,
+        ),
+    output:
+        f"{output_ir}/{{dataset_name}}/{{gene_list}}/stats.tsv",
