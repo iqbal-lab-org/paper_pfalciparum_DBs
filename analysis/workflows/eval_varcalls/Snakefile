@@ -1,6 +1,6 @@
 """
 Evaluates calls produced by gramtools:
-- Uses the 14 samples with PACB assemblies and paired ILMN reads to validate the gramtools-adjudicated calls made using the ILMN reads.
+- Uses the 14 samples with PACB assemblies and paired ILMN reads to assess the gramtools-adjudicated calls made using the ILMN reads.
 - Compares GATK-produced vcfs (either by MalariaGEN on pf6, or Barry lab on pf3k or pvgv) and gramtools-adjudicated vcfs via variant statistics
 """
 
@@ -34,18 +34,23 @@ pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 
-def get_adjudicator_vcf(wildcards):
-    if wildcards.adjudicator == "baseline":
+def get_tool_vcf(wildcards):
+    if wildcards.tool == "baseline":
         return f'{config["input_data"]}/template.vcf.gz'
     else:
-        return f'{config["varcall_dir"]}/{wildcards.adjudicator}/pacb_ilmn_pf/{wildcards.sample_name}/final.vcf.gz'
+        tool_path=f'{config["varcall_dir"]}/{wildcards.tool}/pacb_ilmn_pf/{wildcards.sample_name}/'
+        if wildcards.tool == "cortex":
+            tool_path += "cortex.vcf.gz"
+        else:
+            tool_path += "final.vcf.gz"
+        return tool_path
 
 
 rule all:
     input:
         varifier_pf_validation=expand(
-            f"{output_varifier_pf}/{{adjudicator}}_{{sample_name}}.json",
-            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}"],
+            f"{output_varifier_pf}/{{tool}}_{{sample_name}}.json",
+            tool=["minospb", f"gram_adju_{GMTOOLS_COMMIT}", "cortex"],
             sample_name=pacb_ilmn_snames,
         ),
         bowtie2_pf_validation=expand(
@@ -76,9 +81,9 @@ rule ev_bowtie2_pf_map:
             lambda wildcards: f'{config["ref_genome_dir"]}/{gene_list_to_genome(wildcards)}.genome.fasta.gz'
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
-        vcf=get_adjudicator_vcf,
+        vcf=get_tool_vcf,
     output:
-        f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
+        f"{output_bowtie2_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
     params:
         idx_prefix=f"{output_bowtie2_indexes}/{{sample_name}}",
     shadow:
@@ -108,10 +113,10 @@ rule ev_bowtie2_pf_map:
 rule ev_bowtie2_pf_stats:
     input:
         alignments=expand(
-            f"{output_bowtie2_pf}/{{gene_list_name}}/{{adjudicator}}/{{sample_name}}.sam",
+            f"{output_bowtie2_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
             sample_name=pacb_ilmn_snames,
-            # baseline: runs mapping on an empty vcf, giving a baseline to compare adjudicators to
-            adjudicator=["minospb", f"gram_{GMTOOLS_COMMIT}", "baseline"],
+            # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
+            tool=["minospb", f"gram_adju_{GMTOOLS_COMMIT}", "cortex", "baseline"],
             allow_missing=True,
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
@@ -127,10 +132,10 @@ rule ev_bowtie2_pf_stats:
 rule ev_varifier_validation:
     input:
         ref_genome=f'{config["ref_genome_dir"]}/Pfalciparum.genome.fasta.gz',
-        vcf=f'{config["varcall_dir"]}/{{adjudicator}}/pacb_ilmn_pf/{{sample_name}}/final.vcf.gz',
+        vcf=get_tool_vcf,
         assembly=get_assembly,
     output:
-        f"{output_varifier_pf}/{{adjudicator}}_{{sample_name}}.json",
+        f"{output_varifier_pf}/{{tool}}_{{sample_name}}.json",
     container:
         config["container_minos"]
     resources:

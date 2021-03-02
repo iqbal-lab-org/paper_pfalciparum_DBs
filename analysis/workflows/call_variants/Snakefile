@@ -33,15 +33,15 @@ container: config["container_gramtools"]
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
-output_gramtools = output_base / f"gram_{GMTOOLS_COMMIT}"
+output_gramtools = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
 output_samtools = output_base / "samtools"
 output_cortex = output_base / "cortex"
 output_ref_genomes = output_base / "ref_genomes"
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-# ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"])
-ena_records = pacb_ilmn_records
+ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"])
+# ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"])
 
 
 rule all:
@@ -113,7 +113,7 @@ rule cv_run_cortex:
         """
         gzip -dc {input.ref_genome} > ref.fa # Cortex cannot run on gzipped reference
         python3 {params.cortex_script} ref.fa '{input.reads}' {params.vcf}
-        bgzip {params.vcf}
+        bgzip --force {params.vcf}
         """
 
 

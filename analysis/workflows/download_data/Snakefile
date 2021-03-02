@@ -30,7 +30,7 @@ output_pacb_pf_assemblies = Path(f"{output_base}/pacb_ilmn_pf/assemblies")
 mk_output_dirs(dir())
 
 ena_records = (
-    load_pf6(config["pf6_tsv"])
+    load_pf6(config["pf6_tsv"], ignored_pattern="ENA")
     + load_pvgv(config["pvgv_tsv"])
     + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 )
@@ -142,9 +142,10 @@ rule download_data_index_ref_genomes:
     shell:
         """
         input={input}
-        bgzip -d {input}
         to_gzip="${{input/.gz/}}"
-        bgzip "$to_gzip"
+        # The vivax genome has n's, and gramtools does not deal with n's yet
+        fastaq replace_bases {input} "$to_gzip" n c
+        bgzip --force "$to_gzip"
         samtools faidx {input}
         """
 

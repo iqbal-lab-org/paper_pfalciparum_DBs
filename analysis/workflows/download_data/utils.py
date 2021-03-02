@@ -1,5 +1,6 @@
 from typing import List
 from csv import DictReader
+from pathlib import Path
 
 
 class ENARecord:
@@ -17,10 +18,14 @@ def get_genome_size(dataset_name: str):
     return ENARecord.DATASETS[dataset_name]
 
 
-def load_pf6(tsv_fname: str) -> List[ENARecord]:
-    # The first four have read accessions where reads are not paired,
-    # and the last one' ENA accession is not recognised
-    ignored_samples = {"PM0006-C", "PM0007-C", "PM0008-C", "PN0002-C", "PJ0158-C"}
+def load_pf6(tsv_fname: str, ignored_pattern: str = "") -> List[ENARecord]:
+    ignored_samples = set()
+    ignored_file = Path(tsv_fname).parent / "ignored_samples.tsv"
+    with open(ignored_file) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        for row in reader:
+            if ignored_pattern == "" or row["Reason"].startswith(ignored_pattern):
+                ignored_samples.add(row["Sample"])
     result = list()
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
