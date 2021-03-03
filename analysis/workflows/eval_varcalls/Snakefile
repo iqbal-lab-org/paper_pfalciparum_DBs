@@ -45,8 +45,9 @@ rule all:
             sample_name=pacb_ilmn_snames,
         ),
         bowtie2_pf_validation=expand(
-            f"{output_bowtie2_pf}/{{gene_list}}/stats.tsv",
+            f"{output_bowtie2_pf}/{{gene_list}}/{{outputs}}",
             gene_list=config["pf6_gene_lists"],
+            outputs=["stats.tsv","R_mean_NM.pdf"],
         ),
         induced_ref_mapping_stats=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
@@ -117,12 +118,17 @@ rule ev_bowtie2_pf_stats:
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
     output:
-        f"{output_bowtie2_pf}/{{gene_list_name}}/stats.tsv",
+        stats_tsv=f"{output_bowtie2_pf}/{{gene_list_name}}/stats.tsv",
+        plot=f"{output_bowtie2_pf}/{{gene_list_name}}/R_mean_NM.pdf",
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
+        stats_script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
+        plot_script=f'{config["scripts"]}/{WORKFLOW}/plot_alignments.R',
         alignments_dir=f"{output_bowtie2_pf}/{{gene_list_name}}",
     shell:
-        "python3 {params.script} {params.alignments_dir} {input.var_regions} {output}"
+        """
+        python3 {params.stats_script} {params.alignments_dir} {input.var_regions} {output.stats_tsv}
+        Rscript {params.stats_script} {output.stats_tsv} $(dirname {output.plot})
+        """
 
 
 rule ev_varifier_validation:
@@ -155,8 +161,9 @@ rule ev_induced_ref_map_reads:
         reads=get_reads,
     output:
         bam=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bam",
-        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bai",
+        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bam.bai",
         subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.vcf.gz",
+        subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
     threads: 4
     shadow:
         "shallow"
@@ -164,15 +171,15 @@ rule ev_induced_ref_map_reads:
         mem_mb=4000,
     shell:
         """
+        mkdir -p $(dirname {output.bam})
         # make vcf subsetted at genes listed in input bed
         cp {input.vcf} input.vcf.gz
         bcftools index input.vcf.gz
-        regions=$(awk 'ORS=","{start=$2 - 1;print $1":"start"-"$3}' {input.bed})
-        bcftools view -r "$regions" -s {wildcards.sample_name} -Oz > subsetted.vcf.gz
-        cp subsetted.vcf.gz {output.subsetted_vcf}
+        regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.bed})
+        bcftools view -r "$regions" -s {wildcards.sample_name} input.vcf.gz -Oz > {output.subsetted_vcf}
+        bcftools index {output.subsetted_vcf}
 
         # make induced ref genome and map to it
-        bcftools index subsetted.vcf.gz
         bgzip -dc {input.ref_genome} | bcftools consensus {output.subsetted_vcf} > induced_ref.fa
         bwa index induced_ref.fa
         bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
@@ -195,7 +202,7 @@ rule ev_induced_ref_get_stats:
         "python3 {params.script} {input.bed} {input.ref_genome} {input.vcf} {input.bam} {output} {wildcards.sample_name}:{wildcards.tool}"
 
 
-rule ev_induced_ref_collect_stats:
+rule ev_induced_ref_collect_all_stats:
     input:
         expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
@@ -205,3 +212,10 @@ rule ev_induced_ref_collect_stats:
         ),
     output:
         f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py', 
+    shell:
+        """
+        python3 {params.script} --header > {output}
+        cat {input} >> {output}
+        """
