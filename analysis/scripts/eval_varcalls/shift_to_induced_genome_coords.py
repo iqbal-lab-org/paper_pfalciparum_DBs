@@ -34,9 +34,13 @@ def translate_bed(input_bed: Path, input_ref_genome: Path, input_vcf: Path):
     """
     chrom_sizes = load_fasta(input_ref_genome, sizes_only=True)
     vcf_records = VariantFile(input_vcf).fetch()
-    searchable_map = SearchableSeqRegionsMap(
-        SeqRegionMapper(vcf_records, chrom_sizes).get_map()
-    )
+    try:
+        searchable_map = SearchableSeqRegionsMap(
+            SeqRegionMapper(vcf_records, chrom_sizes).get_map()
+        )
+    # Catches case where vcf has no records
+    except ValueError:
+        searchable_map = None
     result = list()
     with input_bed.open("r") as bed_in:
         for line in bed_in:
@@ -47,10 +51,16 @@ def translate_bed(input_bed: Path, input_ref_genome: Path, input_vcf: Path):
             )  # Bed start is 0-based, SeqRegion coords are 1-based
             end_pos = int(rows[2])
 
-            translated_start_pos = str(
-                translate_pos(chrom, start_pos, searchable_map) - 1
-            )
-            translated_end_pos = translate_pos(chrom, end_pos, searchable_map).__str__()
+            if searchable_map is not None:
+                translated_start_pos = str(
+                    translate_pos(chrom, start_pos, searchable_map) - 1
+                )
+                translated_end_pos = translate_pos(
+                    chrom, end_pos, searchable_map
+                ).__str__()
+            else:
+                translated_start_pos = start_pos
+                translated_end_pos = end_pos
             result.append([chrom, translated_start_pos, translated_end_pos] + rows[3:])
     return result
 

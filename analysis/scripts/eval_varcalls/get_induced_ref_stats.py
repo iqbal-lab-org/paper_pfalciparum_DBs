@@ -85,9 +85,12 @@ if __name__ == "__main__":
         print("Metadata formatting error")
         usage()
 
+    vcf_file = VariantFile(str(input_vcf))
+    if not Path(f"{input_vcf}.csi").exists():
+        raise Exception(f"bcftools index for {input_vcf} not found")
+
     translated_bed = translate_bed(input_bed, input_ref_genome, input_vcf)
 
-    vcf_file = VariantFile(str(input_vcf))
     output_file = output_tsv.open("w")
 
     for bed_line in translated_bed:
@@ -114,7 +117,12 @@ if __name__ == "__main__":
                 continue
 
         # Traverse vcf records in bed region
-        vcf_records = vcf_file.fetch(bed_line[0], reg_start, reg_end)
+        try:
+            vcf_records = vcf_file.fetch(bed_line[0], reg_start, reg_end)
+        # catches empty vcf; but also unindexed vcf;
+        # thus index existence must be checked before this
+        except ValueError:
+            vcf_records = []
         num_alt_calls, ref_bases_in_alt_calls = 0, 0
         edit_distance_induced_ref = 0
         for vcf_record in vcf_records:
