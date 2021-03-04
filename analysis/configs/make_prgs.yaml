@@ -1,0 +1,5 @@
+min_match_len: [3, 7]
+gene_list: "pf6_25_genes"
+dataset: "pf6_analysis_set"
+flank_size: 5000
+

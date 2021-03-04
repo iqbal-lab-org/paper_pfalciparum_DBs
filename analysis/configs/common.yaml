@@ -1,7 +1,11 @@
 scripts: "analysis/scripts"
 output_dir: "analysis/outputs"
-dl_output_dir: "analysis/outputs/download_data"
 input_data: "analysis/input_data"
-gram_builds_dir: "analysis/outputs/gram_builds"
+
+dl_output_dir: "analysis/outputs/download_data"
+gene_bed_dir: "analysis/outputs/download_data/gene_beds"
+ref_genome_dir: "analysis/outputs/download_data/ref_genomes"
+varcall_dir: "analysis/outputs/call_variants"
+
 container_gramtools: "container/built/singu.sif"
 container_minos: "container/built/minospb.sif"

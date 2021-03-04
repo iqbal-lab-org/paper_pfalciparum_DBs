@@ -18,7 +18,9 @@ def get_genome_size(dataset_name: str):
     return ENARecord.DATASETS[dataset_name]
 
 
-def load_pf6(tsv_fname: str, ignored_pattern: str = "") -> List[ENARecord]:
+def load_pf6(
+    tsv_fname: str, ignored_pattern: str = "", use_analysis_set: bool = False
+) -> List[ENARecord]:
     ignored_samples = set()
     ignored_file = Path(tsv_fname).parent / "ignored_samples.tsv"
     with open(ignored_file) as tsvfile:
@@ -30,8 +32,12 @@ def load_pf6(tsv_fname: str, ignored_pattern: str = "") -> List[ENARecord]:
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
         for row in reader:
-            # This skips the Indonesian samples, which were blocked from public release so have no ENA IDs
+            # Skips the Indonesian samples, which were blocked from public release so have no ENA IDs,
+            # and any other ignored samples (see the tsv for reason)
             if row["ENA"] == "" or row["Sample"] in ignored_samples:
+                continue
+            # Skip non analysis_set pf6 samples if asked for
+            if use_analysis_set and row["Exclusion reason"] != "Analysis_set":
                 continue
             result.append(ENARecord("pf6", row["Sample"], row["ENA"]))
     return result

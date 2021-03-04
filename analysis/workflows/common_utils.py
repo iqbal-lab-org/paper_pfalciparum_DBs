@@ -66,6 +66,7 @@ def get_reads(wildcards):
 def get_ref_genome(wildcards):
     ds_to_ref = {
         "pf6": "Pfalciparum",
+        "pf6_analysis_set": "Pfalciparum",
         "pvgv": "PvivaxP01",
         "pacb_ilmn_pf": "Pfalciparum",
     }

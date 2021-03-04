@@ -1,0 +1,191 @@
+from pathlib import Path
+
+WORKFLOW = "make_prgs"
+DL_WORKFLOW = "download_data"
+
+
+configfile: "analysis/configs/common.yaml"
+configfile: f"analysis/configs/{WORKFLOW}.yaml"
+configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
+
+
+container: config["container_gramtools"]
+
+
+include: f"../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
+include: f"../{DL_WORKFLOW}/utils.py"
+
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+mk_output_dirs(dir())
+
+samples = get_sample_names(config["dataset"])
+genes = load_bed(config["gene_list"])
+
+
+def expand_samples(wildcards):
+    return expand(
+        f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
+        sample_name=dataset_name_to_samples[wildcards.dataset_name],
+        allow_missing=True,
+    )
+
+
+rule all:
+    input:
+        prgs=expand(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
+            dataset_name=config["dataset"],
+            gene_list_name=config["gene_list"],
+            min_match_len=config["min_match_len"],
+        ),
+
+
+rule mp_make_beds:
+    input:
+        bed=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+        ref_genome_index=lambda wcards: f"{get_ref_genome(wcards)}.fai",
+    output:
+        bed_genes=f'{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/genes_{config["flank_size"]}.bed',
+        bed_invariants=(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/invariant.bed"
+        ),
+        bed_full=f'{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/genes_{config["flank_size"]}_and_invariant.bed',
+    params:
+        extension_script=f'{config["scripts"]}/{WORKFLOW}/extend_intervals.py',
+        flank_size=config["flank_size"],
+    shadow:
+        "shallow"
+    shell:
+        # Assumes input.bed is sorted
+        """
+        mkdir -p $(dirname {output.bed_genes})
+        python3 {params.extension_script} {input.bed} {params.flank_size} {output.bed_genes} --force
+        bedtools complement -i {output.bed_genes} -g {input.ref_genome_index} | awk 'BEGIN{{l=1}}{{print $0"\t""nonvar_"l;l+=1}}' > {output.bed_invariants}
+
+        cat {output.bed_genes} {output.bed_invariants} > tmp.bed
+        bedtools sort -i tmp.bed -faidx {input.ref_genome_index} > {output.bed_full}
+        """
+
+
+rule mp_induce_gene_sequences:
+    input:
+        bed_genes=rules.mp_make_beds.output.bed_genes,
+        ref_genome=get_ref_genome,
+        vcf=get_one_vcf,
+    output:
+        expand(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
+            gene=genes,
+            allow_missing=True,
+        ),
+    shell:
+        """
+        outdir=$(dirname {output[0]})
+        mkdir -p "$outdir"
+        cp {input.vcf} input.vcf.gz
+        bcftools index input.vcf.gz
+        IFS="\n"; for gene_line in $(cat {input.bed_genes})
+        do
+            IFS="\t"; elems=($gene_line)    
+            adj_start=$((${{elems[1]}} + 1))
+            reg="${{elems[0]}}:${{adj_start}}-${{elems[2]}}"
+            gene_name=${{elems[3]/%%;*}}
+            fout=${{outdir}}/{wildcards.sample_name}/${{gene_name}}.fa
+            samtools faidx {input.ref_genome} $reg | bcftools consensus input.vcf.gz |
+                sed 's/>.*/>'{wildcards.sample}'/' > $fout
+        done
+        """
+
+
+rule mp_cat_var_portions:
+    input:
+        expand(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
+            sample_name=samples,
+            allow_missing=True,
+        ),
+    output:
+        gene_seqs=f"{output_base}/{{dataset_name}}/{{gene_list_name}}/catted_genes/{{gene}}.fa",
+    run:
+        # Use run, not shell, as too long list of arguments to shell script failed in snakemake v5.14.0.
+        outfile = Path(output)
+        outfile.parent.mkdir(exist_ok=True)
+        with outfile.open("w") as fout:
+            for portion in input.samples:
+                with open(portion) as fin:
+                    sequence = fin.read()
+                fout.write(sequence)
+
+
+rule mp_make_msas:
+    input:
+        rules.mp_cat_var_portions.output.gene_seqs,
+    output:
+        gene_msa=(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/msas/{{gene}}.msa"
+        ),
+    resources:
+        mem_mb=5000,
+    shell:
+        """
+        mkdir -p $(dirname {output.gene_msa})
+        mafft {input} > {output.gene_msa}"
+        """
+
+
+rule mp_make_var_prg:
+    input:
+        rules.mp_make_msas.output.gene_msa,
+    output:
+        gene_prg=f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
+    resources:
+        mem_mb=5000,
+    shadow:
+        "shallow"
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        make_prg from_msa --max_nesting 5 --min_match_length {wildcards.min_match_len} -o {{wildcards.gene}} {input}
+        mv {{wildcards.gene}}.bin {output}
+        """
+
+
+rule mp_make_nonvar_prg_portions:
+    input:
+        nonvars=rules.mp_make_beds.output.bed_invariants,
+        ref_genome=get_ref_genome,
+    output:
+        nonvar_prgs=touch(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/nonvars_done.txt"
+        ),
+    shell:
+        """
+        outdir=$(dirname {output[0]})
+        IFS="\n"; for nonvar_line in $(cat {input.nonvars})
+        do
+            IFS="\t"; elems=($nonvar_line)    
+            adj_start=$((${{elems[1]}} + 1))
+            reg="${{elems[0]}}:${{adj_start}}-${{elems[2]}}"
+            samtools faidx {input.ref_genome} $reg |
+                encode_prg -o ${{outdir}}/${{elems[3]}}.bin
+        done
+        """
+
+
+rule mp_concat_prgs:
+    input:
+        nonvar_prgs=rules.mp_make_nonvar_prg_portions.output[0],
+        var_prgs=expand(
+            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
+            gene=genes,
+            allow_missing=True,
+        ),
+        bed_full=rules.mp_make_beds.output.bed_full,
+    output:
+        f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/concat_prgs.py',
+    shell:
+        "python3 {params.script} $(dirname {output}) {input.bed_full} {output}"
