@@ -47,7 +47,7 @@ rule all:
         bowtie2_pf_validation=expand(
             f"{output_bowtie2_pf}/{{gene_list}}/{{outputs}}",
             gene_list=config["pf6_gene_lists"],
-            outputs=["stats.tsv","R_mean_NM.pdf"],
+            outputs=["stats.tsv","plots/R_mean_NM.pdf"],
         ),
         induced_ref_mapping_stats=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
@@ -119,15 +119,19 @@ rule ev_bowtie2_pf_stats:
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
     output:
         stats_tsv=f"{output_bowtie2_pf}/{{gene_list_name}}/stats.tsv",
-        plot=f"{output_bowtie2_pf}/{{gene_list_name}}/R_mean_NM.pdf",
+        plot=f"{output_bowtie2_pf}/{{gene_list_name}}/plots/R_mean_NM.pdf",
     params:
         stats_script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
         plot_script=f'{config["scripts"]}/{WORKFLOW}/plot_alignments.R',
         alignments_dir=f"{output_bowtie2_pf}/{{gene_list_name}}",
+    shadow:
+        "shallow"
     shell:
         """
         python3 {params.stats_script} {params.alignments_dir} {input.var_regions} {output.stats_tsv}
-        Rscript {params.stats_script} {output.stats_tsv} $(dirname {output.plot})
+        plot_dir=$(dirname {output.plot})
+        mkdir -p "$plot_dir"
+        Rscript {params.plot_script} {output.stats_tsv} "$plot_dir"
         """
 
 
