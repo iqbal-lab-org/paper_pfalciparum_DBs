@@ -1,12 +1,13 @@
 set -eu
-genes_file=$1
-gff_file=$(realpath $2)
-output_bed=$3
-
 [[ $# != 3 ]] && echo "usage: $0 genes_file gff_file output_bed" \
 	&& echo -e "genes_file: one gene name per line" \
 	&& echo -e "gff_file: genome annotation file" \
 	&& exit 0
+
+genes_file=$1
+gff_file=$(realpath $2)
+output_bed=$3
+
 
 tmp_file="${output_bed}.tmp"
 > $tmp_file
@@ -24,7 +25,7 @@ for line in $(tail -n+2 $genes_file)
 		fi
         # gff is [1-based,1-based], and bed is [0-based,0-based); therefore the start pos
         # in gff needs to be decremented by 1.
-		echo $found_annot | awk '{$4-=1;print $1"\t"$4"\t"$5"\t""'"Name=$gene_name;ID=$gene_ID"'"}' >> $tmp_file
+        echo $found_annot | awk '{$4-=1;print $1"\t"$4"\t"$5"\t""'"$gene_name"'""\t""'"$gene_ID"'"}' >> $tmp_file
 done
 bedtools sort -i "$tmp_file" > "$output_bed"
 rm "$tmp_file"

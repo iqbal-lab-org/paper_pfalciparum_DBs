@@ -1,3 +1,10 @@
+"""
+Builds a full-genome prg starting from:
+    * A dataset name. This is used to map to i)a reference genome ii)a set of vcfs containing the variation that will go in the prg
+    * A gene list name. This is used to map to a bed file of regions for which the variation is added to the prg.
+
+These two values need to be changed in 'make_prgs.yaml' config to trigger a different prg build; also, see the relevant functions in 'utils.py' to define ref genome and vcf to use.
+"""
 from pathlib import Path
 
 WORKFLOW = "make_prgs"
@@ -18,6 +25,7 @@ include: f"../{DL_WORKFLOW}/utils.py"
 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_catted_genes=Path(f'{output_base}/{config["dataset"]}/{config["gene_list"]}/catted_genes')
 mk_output_dirs(dir())
 
 samples = get_sample_names(config["dataset"])
@@ -80,6 +88,8 @@ rule mp_induce_gene_sequences:
             gene=genes,
             allow_missing=True,
         ),
+    shadow:
+        "shallow"
     shell:
         """
         outdir=$(dirname {output[0]})
@@ -91,17 +101,17 @@ rule mp_induce_gene_sequences:
             IFS="\t"; elems=($gene_line)    
             adj_start=$((${{elems[1]}} + 1))
             reg="${{elems[0]}}:${{adj_start}}-${{elems[2]}}"
-            gene_name=${{elems[3]/%%;*}}
-            fout=${{outdir}}/{wildcards.sample_name}/${{gene_name}}.fa
+            gene_name=${{elems[3]}}
+            fout=${{outdir}}/${{gene_name}}.fa
             samtools faidx {input.ref_genome} $reg | bcftools consensus input.vcf.gz |
-                sed 's/>.*/>'{wildcards.sample}'/' > $fout
+                sed 's/>.*/>'{wildcards.sample_name}'/' > $fout
         done
         """
 
 
 rule mp_cat_var_portions:
     input:
-        expand(
+        samples=expand(
             f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
             sample_name=samples,
             allow_missing=True,
@@ -110,9 +120,7 @@ rule mp_cat_var_portions:
         gene_seqs=f"{output_base}/{{dataset_name}}/{{gene_list_name}}/catted_genes/{{gene}}.fa",
     run:
         # Use run, not shell, as too long list of arguments to shell script failed in snakemake v5.14.0.
-        outfile = Path(output)
-        outfile.parent.mkdir(exist_ok=True)
-        with outfile.open("w") as fout:
+        with open(output.gene_seqs, "w") as fout:
             for portion in input.samples:
                 with open(portion) as fin:
                     sequence = fin.read()
@@ -131,7 +139,7 @@ rule mp_make_msas:
     shell:
         """
         mkdir -p $(dirname {output.gene_msa})
-        mafft {input} > {output.gene_msa}"
+        mafft {input} > {output.gene_msa}
         """
 
 
@@ -147,8 +155,8 @@ rule mp_make_var_prg:
     shell:
         """
         mkdir -p $(dirname {output})
-        make_prg from_msa --max_nesting 5 --min_match_length {wildcards.min_match_len} -o {{wildcards.gene}} {input}
-        mv {{wildcards.gene}}.bin {output}
+        make_prg from_msa --max_nesting 5 --min_match_length {wildcards.min_match_len} -n {wildcards.gene} {input}
+        mv {wildcards.gene}.bin {output}
         """
 
 
@@ -187,5 +195,7 @@ rule mp_concat_prgs:
         f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/concat_prgs.py',
+    resources:
+        mem_mb=5000,
     shell:
         "python3 {params.script} $(dirname {output}) {input.bed_full} {output}"

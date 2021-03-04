@@ -119,8 +119,8 @@ def get_file_names(base_dir: Path, prg_names: PRG_Names) -> PRG_Files:
     for child in to_search:
         if child.is_dir():
             continue
-        if child.name in prg_names:
-            prg_files[child.name] = child
+        if child.stem in prg_names:
+            prg_files[child.stem] = child
 
     for prg_name in prg_names:
         if prg_name not in prg_files:

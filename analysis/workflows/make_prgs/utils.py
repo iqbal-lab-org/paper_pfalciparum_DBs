@@ -21,6 +21,6 @@ def load_bed(gene_list_name):
     result = list()
     with open(bed_fname) as fin:
         for line in fin:
-            name_field = line.split("\t")[3]
-            result.append(name_field.split(";")[0])
+            name = line.split("\t")[3]
+            result.append(name)
     return result

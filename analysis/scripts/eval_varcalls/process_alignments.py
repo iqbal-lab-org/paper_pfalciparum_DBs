@@ -55,7 +55,10 @@ def load_gene_lengths(bed_fname: Path) -> Dict[str, int]:
 
 def get_gene_name(gene_string: str):
     """Converts 'Name=<x>;ID=<y>' into <x>"""
-    return gene_string.split(";")[0].split("=")[1]
+    try:
+        return gene_string.split(";")[0].split("=")[1]
+    except IndexError:
+        return gene_string
 
 
 def get_scores(sam_fname: Path, gene_lengths: Dict[str, int]) -> GeneScores:
