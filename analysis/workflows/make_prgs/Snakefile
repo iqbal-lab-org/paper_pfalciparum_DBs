@@ -8,12 +8,10 @@ These two values need to be changed in 'make_prgs.yaml' config to trigger a diff
 from pathlib import Path
 
 WORKFLOW = "make_prgs"
-DL_WORKFLOW = "download_data"
 
 
 configfile: "analysis/configs/common.yaml"
 configfile: f"analysis/configs/{WORKFLOW}.yaml"
-configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
 
 
 container: config["container_gramtools"]
@@ -21,23 +19,19 @@ container: config["container_gramtools"]
 
 include: f"../common_utils.py"
 include: f"../{WORKFLOW}/utils.py"
-include: f"../{DL_WORKFLOW}/utils.py"
 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
-output_catted_genes=Path(f'{output_base}/{config["dataset"]}/{config["gene_list"]}/catted_genes')
+output_catted_genes = Path(
+    f'{output_base}/{config["dataset"]}/{config["gene_list"]}/catted_genes'
+)
 mk_output_dirs(dir())
 
-samples = get_sample_names(config["dataset"])
-genes = load_bed(config["gene_list"])
-
-
-def expand_samples(wildcards):
-    return expand(
-        f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
-        sample_name=dataset_name_to_samples[wildcards.dataset_name],
-        allow_missing=True,
-    )
+# Change the parameters here to trigger prg construction for different samples and genes
+# Make sure the genes correspond to which dataset the samples are from; eg pf genes for pf6 samples.
+# "ref" is prepended so that we place a ref genome slice at the beginning of the msas/prgs.
+samples = ["ref"] + get_sample_names("pf6_analysis_set")
+genes = load_bed("pf6_25_genes")
 
 
 rule all:
@@ -111,6 +105,7 @@ rule mp_induce_gene_sequences:
 
 rule mp_cat_var_portions:
     input:
+        # The 'ref' sample should occur first in samples list, so that it is first path in make_prg produced prg.
         samples=expand(
             f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
             sample_name=samples,

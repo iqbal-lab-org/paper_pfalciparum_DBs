@@ -13,7 +13,6 @@ configfile: "analysis/configs/common.yaml"
 configfile: f"analysis/configs/{DL_WORKFLOW}.yaml"
 
 
-include: f"../{DL_WORKFLOW}/utils.py"
 include: f"../common_utils.py"
 
 

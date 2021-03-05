@@ -1,0 +1,80 @@
+from itertools import islice, product, starmap
+
+WORKFLOW = "joint_genotyping"
+
+
+configfile: "analysis/configs/common.yaml"
+configfile: f"analysis/configs/{WORKFLOW}.yaml"
+
+
+include: f"../common_utils.py"
+
+
+GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_gram_build = output_base / f"gram_build_{GMTOOLS_COMMIT}"
+output_gram_gtype = output_base / f"gram_jointgeno_{GMTOOLS_COMMIT}"
+mk_output_dirs(dir())
+
+prg_dir = f'{config["output_dir"]}/make_prgs'
+
+
+dataset_names = ["pf6_analysis_set"]
+gene_list_names = ["pf6_25_genes"]
+
+
+def expand_inputs(dataset_name, gene_list_name):
+    return expand(
+        f"{output_gram_gtype}/{dataset_name}/{gene_list_name}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+        min_match_len=config["min_match_len"],
+        kmer_size=config["kmer_size"],
+        sample_name=get_sample_names(dataset_name),
+    )
+
+
+rule all:
+    input:
+        starmap(
+            expand_inputs,
+            zip(
+                dataset_names,
+                gene_list_names,
+            ),
+        ),
+
+
+rule jg_gramtools_build:
+    input:
+        ref_genome=get_ref_genome,
+        prg=f"{prg_dir}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
+    output:
+        f"{output_gram_build}/{{dataset_name}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/coverage_graph",
+    resources:
+        mem_mb=10000,
+    shell:
+        """
+        outdir=$(dirname {output})
+        gramtools build --ref {input.ref_genome} --prg {input.prg} --kmer_size {wildcards.kmer_size} -o ${{outdir}}
+        """
+
+
+rule jg_gramtools_genotype:
+    input:
+        gram_build=rules.jg_gramtools_build.output,
+        reads=get_reads,
+    output:
+        f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+    threads: 10
+    resources:
+        mem_mb=5000,
+    shadow:
+        "shallow"
+    shell:
+        """
+        gram_build=$(dirname {input.gram_build})
+        gramtools genotype -i ${{gram_build}} -o genotyped --reads {input.reads} --sample_id {wildcards.sample_name} --max_threads {threads}
+        gram_geno=$(dirname {output})
+        cp ${{gram_geno}}/*.json ${{gram_geno}}/
+        cp ${{gram_geno}}/genotype/genotyped.json ${{gram_geno}}/
+        cp ${{gram_geno}}/genotype/*.vcf.gz {output}
+        """

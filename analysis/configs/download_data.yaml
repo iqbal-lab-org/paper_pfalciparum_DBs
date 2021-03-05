@@ -1,13 +1,9 @@
-pf6_tsv: "analysis/input_data/sample_lists/pf6/pf6_samples.tsv"
-pvgv_tsv: "analysis/input_data/sample_lists/pvgv/pvgv_samples.tsv"
-pacb_ilmn_pf_tsv: "analysis/input_data/sample_lists/pacb_ilmn_pf/pacb_ilmn_pf.tsv"
-pacb_pf_ftp: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/Plasmodium/falciparum/PF3K/ReferenceGenomes_Version1/GENOMES/*.fasta.gz"
-
 ref_genomes:
     ftp_root: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/"
     genomes: ["PvivaxP01", "Pfalciparum"]
     extensions: [".genome.fasta.gz", ".genome.fasta.gz.fai", ".gff3.gz"]
 
+pacb_pf_ftp: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/Plasmodium/falciparum/PF3K/ReferenceGenomes_Version1/GENOMES/*.fasta.gz"
 gene_list_dir: "analysis/input_data/gene_lists"
 gene_list_names: ["pf6_25_genes"]
 
