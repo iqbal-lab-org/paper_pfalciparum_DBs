@@ -1,4 +1,4 @@
-gene_name   gene_ID
+gene_name	gene_ID
 HRP2	PF3D7_0831800
 HRP3	PF3D7_1372200
 DBLMSP	PF3D7_1035700

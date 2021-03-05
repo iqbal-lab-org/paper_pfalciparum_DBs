@@ -37,6 +37,9 @@ From: ubuntu:focal
 	pip3 install -r /setup_files/pyrequirements.txt
     pip3 install -e /nesting_paper_scripts
 
+    # R requirements of repo
+    Rscript /setup_files/Rpacks.R
+
     ## For downloading data from ENA
     git clone https://github.com/enasequence/enaBrowserTools
     cp -r enaBrowserTools/python3/* /usr/bin
@@ -98,10 +101,18 @@ From: ubuntu:focal
 	## bedtools
 	cd ${HOME}
 	wget -O /usr/bin/bedtools https://github.com/arq5x/bedtools2/releases/download/v2.29.2/bedtools.static.binary && chmod a+x /usr/bin/bedtools
-    ##### Currently tested ends here #######
 
-    # R requirements of repo
-    Rscript /setup_files/Rpacks.R
+	## mafft (multiple seq alignments)
+	cd ${HOME}
+	wget https://mafft.cbrc.jp/alignment/software/mafft_7.471-1_amd64.deb -O mafft && dpkg -i mafft && rm mafft
+
+	## make_prg (genome graph construction)
+	cd ${HOME}
+	git clone https://github.com/rmcolq/make_prg.git
+	cd make_prg && git checkout c02adc35f3a746dfcf45fd01060d7b28f5a72a24
+	pip3 install . && cd .. && rm -r make_prg
+
+    ##### Currently tested ends here #######
 
 
     ## seqtk (fasta/q manipulation)
@@ -118,14 +129,6 @@ From: ubuntu:focal
 	cp art_src_MountRainier_Linux/art_illumina /usr/bin/ && rm -r art_src_MountRainier_Linux
 
 
-
-	
-
-
-	## mafft (multiple seq alignments)
-	cd ${HOME}
-	wget https://mafft.cbrc.jp/alignment/software/mafft_7.471-1_amd64.deb -O mafft && dpkg -i mafft && rm mafft
-
 	## RAxML (phylo trees)
 	cd ${HOME}
 	git clone https://github.com/stamatak/standard-RAxML && cd standard-RAxML && make -j 2 -f Makefile.PTHREADS.gcc
@@ -137,12 +140,6 @@ From: ubuntu:focal
 
 	## graphtyper2 (genome graph toolkit)
 	wget -O /usr/bin/graphtyper https://github.com/DecodeGenetics/graphtyper/releases/download/v2.5.1/graphtyper && chmod a+x /usr/bin/graphtyper 
-
-	## make_prg (genome graph construction)
-	cd ${HOME}
-	git clone https://github.com/rmcolq/make_prg.git
-	cd make_prg && git checkout 2d7557a0724b4e6e9c3328ac3381318a5b994144
-	pip3 install . && cd .. && rm -r make_prg
 
 
 
