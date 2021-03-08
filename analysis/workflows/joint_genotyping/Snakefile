@@ -24,6 +24,9 @@ gene_list_names = ["pf6_25_genes"]
 
 
 def expand_inputs(dataset_name, gene_list_name):
+    """
+    Produces the gramtools output vcfs based on a dataset name, paired with a gene list name.
+    """
     return expand(
         f"{output_gram_gtype}/{dataset_name}/{gene_list_name}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
         min_match_len=config["min_match_len"],
@@ -48,13 +51,13 @@ rule jg_gramtools_build:
         ref_genome=get_ref_genome,
         prg=f"{prg_dir}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
     output:
-        f"{output_gram_build}/{{dataset_name}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/coverage_graph",
+        f"{output_gram_build}/{{dataset_name}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/kmers_stats",
     resources:
-        mem_mb=10000,
+        mem_mb=20000,
     shell:
         """
         outdir=$(dirname {output})
-        gramtools build --ref {input.ref_genome} --prg {input.prg} --kmer_size {wildcards.kmer_size} -o ${{outdir}}
+        gramtools build --ref {input.ref_genome} --prg {input.prg} --kmer_size {wildcards.kmer_size} -o ${{outdir}} --force
         """
 
 
@@ -63,7 +66,8 @@ rule jg_gramtools_genotype:
         gram_build=rules.jg_gramtools_build.output,
         reads=get_reads,
     output:
-        f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+        vcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+        jvcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.json",
     threads: 10
     resources:
         mem_mb=5000,
@@ -73,8 +77,9 @@ rule jg_gramtools_genotype:
         """
         gram_build=$(dirname {input.gram_build})
         gramtools genotype -i ${{gram_build}} -o genotyped --reads {input.reads} --sample_id {wildcards.sample_name} --max_threads {threads}
-        gram_geno=$(dirname {output})
-        cp ${{gram_geno}}/*.json ${{gram_geno}}/
-        cp ${{gram_geno}}/genotype/genotyped.json ${{gram_geno}}/
-        cp ${{gram_geno}}/genotype/*.vcf.gz {output}
+        gram_geno=$(dirname {output.vcf})
+        mkdir -p "$gram_geno"
+        cp genotyped/*.json "${{gram_geno}}/"
+        cp genotyped/genotype/*.vcf.gz {output.vcf}
+        cp genotyped/genotype/genotyped.json {output.jvcf}
         """

@@ -94,7 +94,7 @@ if __name__ == "__main__":
     output_file = output_tsv.open("w")
 
     for bed_line in translated_bed:
-        gene_name = bed_line[3].split(";")[0].split("=")[1]
+        gene_name = bed_line[3]
         reg_start = int(bed_line[1]) + 1
         reg_end = int(bed_line[2])
         record = Stats(sample_name, tool_name, gene_name)
@@ -132,7 +132,14 @@ if __name__ == "__main__":
                 num_alt_calls += 1
                 ref_allele = vcf_record.alleles[0]
                 ref_bases_in_alt_calls += len(ref_allele)
-                alt_allele = [alt for alt in sample.alleles if alt != ref_allele][0]
+                try:
+                    alt_allele = [alt for alt in sample.alleles if alt != ref_allele][0]
+                except IndexError:
+                    # In gramtools, alt-called allele can be same as ref-allele due to prg ambiguity.
+                    if "AMBIG" in sample["FT"]:
+                        alt_allele = ref_allele
+                    else:
+                        raise
                 edit_distance_induced_ref += edalign(ref_allele, alt_allele)[
                     "editDistance"
                 ]

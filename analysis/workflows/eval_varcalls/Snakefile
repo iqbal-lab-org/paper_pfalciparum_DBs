@@ -15,7 +15,6 @@ configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
 include: f"../{WORKFLOW}/utils.py"
-include: f"../{DL_WORKFLOW}/utils.py"
 include: f"../common_utils.py"
 
 
@@ -23,6 +22,8 @@ container: config["container_gramtools"]
 
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
+gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_varifier_pf = output_base / "pacb_ilmn_pf" / "varifier"
 output_bowtie2_pf = output_base / "pacb_ilmn_pf" / "bowtie2"
@@ -41,7 +42,7 @@ rule all:
     input:
         varifier_pf_validation=expand(
             f"{output_varifier_pf}/{{tool}}_{{sample_name}}.json",
-            tool=["minospb", f"gram_adju_{GMTOOLS_COMMIT}", "cortex"],
+            tool=["minospb", gram_adju, "cortex"],
             sample_name=pacb_ilmn_snames,
         ),
         bowtie2_pf_validation=expand(
@@ -113,7 +114,7 @@ rule ev_bowtie2_pf_stats:
             f"{output_bowtie2_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
             sample_name=pacb_ilmn_snames,
             # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
-            tool=["minospb", f"gram_adju_{GMTOOLS_COMMIT}", "cortex", "baseline"],
+            tool=["minospb", gram_adju, "cortex", "baseline"],
             allow_missing=True,
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
@@ -159,15 +160,15 @@ rule ev_varifier_validation:
 
 rule ev_induced_ref_map_reads:
     input:
-        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list}}.bed',
+        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
         ref_genome=get_ref_genome,
         vcf=get_tool_vcf,
         reads=get_reads,
     output:
-        bam=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bam",
-        bai=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.bam.bai",
-        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.vcf.gz",
-        subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
+        bam=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam",
+        bai=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam.bai",
+        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz",
+        subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
     threads: 4
     shadow:
         "shallow"
@@ -194,12 +195,12 @@ rule ev_induced_ref_map_reads:
 
 rule ev_induced_ref_get_stats:
     input:
-        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list}}.bed',
+        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
         ref_genome=get_ref_genome,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
         bam=rules.ev_induced_ref_map_reads.output.bam,
     output:
-        f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
+        f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py', 
     shell:
@@ -210,16 +211,32 @@ rule ev_induced_ref_collect_all_stats:
     input:
         expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
-            tool=[f"cortex", "myo_7_pf_genes"],
+            tool=[f"cortex", "myo_7_pf_genes", gram_jointgeno],
             sample_name=pf6_validation_samples,
             allow_missing=True,
         ),
     output:
+        temp(f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_noheader.tsv"),
+    run:
+        # Run in python as in shell the argument list is too long
+        with open(output[0],"w") as fout:
+            for fname in input:
+                with open(fname) as fin:
+                    stats = fin.read()
+                fout.write(stats)
+
+rule ev_induced_ref_all_stats_add_header:
+    # I tried using subprocess in 'run' above to get header, but throws 'PermissionError'
+    input:
+        rules.ev_induced_ref_collect_all_stats.output,
+    output:
         f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
+    shadow:
+        "shallow"
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py', 
     shell:
         """
-        python3 {params.script} --header > {output}
-        cat {input} >> {output}
+        python3 {params.script} --header > header.tsv
+        cat header.tsv {input} > {output}
         """
