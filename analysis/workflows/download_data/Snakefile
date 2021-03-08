@@ -20,7 +20,6 @@ configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
 include: "../common_utils.py"
-include: "utils.py"
 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')

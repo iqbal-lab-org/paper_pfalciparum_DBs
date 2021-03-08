@@ -20,26 +20,33 @@ container: config["container_gramtools"]
 include: f"../common_utils.py"
 include: f"../{WORKFLOW}/utils.py"
 
+##### 
+## Change the parameters below to trigger prg construction for different samples and genes
+## Make sure the genes correspond to which dataset the samples are from; eg pf genes for pf6 samples.
+## "ref" is prepended so that we place a ref genome slice at the beginning of the msas/prgs.
+
+## P falciparum
+#samples = ["ref"] + get_sample_names("pf6_analysis_set")
+#genes = load_bed("pf6_25_genes")
+
+## P vivax
+dataset_name="pvgv"
+gene_list_name="pvivax_7_genes"
+samples = ["ref"] + get_sample_names(dataset_name)
+genes = load_bed("pvivax_7_genes")
+##### 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_catted_genes = Path(
-    f'{output_base}/{config["dataset"]}/{config["gene_list"]}/catted_genes'
-)
+    f'{output_base}/{dataset_name}/{gene_list_name}/catted_genes'
+    )
 mk_output_dirs(dir())
-
-# Change the parameters here to trigger prg construction for different samples and genes
-# Make sure the genes correspond to which dataset the samples are from; eg pf genes for pf6 samples.
-# "ref" is prepended so that we place a ref genome slice at the beginning of the msas/prgs.
-samples = ["ref"] + get_sample_names("pf6_analysis_set")
-genes = load_bed("pf6_25_genes")
 
 
 rule all:
     input:
         prgs=expand(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
-            dataset_name=config["dataset"],
-            gene_list_name=config["gene_list"],
+            f"{output_base}/{dataset_name}/{gene_list_name}/mn5_mml{{min_match_len}}/prg",
             min_match_len=config["min_match_len"],
         ),
 

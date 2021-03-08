@@ -43,7 +43,7 @@ def mk_output_dirs(variables):
 def gene_list_to_genome(wildcards):
     if "pf6" in wildcards.gene_list_name:
         return "Pfalciparum"
-    elif "pvgv" in wildcards.gene_list_name:
+    elif "pvivax" in wildcards.gene_list_name:
         return "PvivaxP01"
     else:
         raise ValueError(f"wildcards.{gene_list_name} not in {{pf6, pvgv}}")
@@ -92,6 +92,8 @@ def get_sample_names(dataset_name):
         loaded_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
     elif dataset_name.startswith("pacb_ilmn_pf"):
         loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    elif dataset_name == "pvgv":
+        loaded_samples = load_pvgv(config["pvgv_tsv"])
     else:
         loaded_samples = None
 
