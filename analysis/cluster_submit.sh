@@ -33,7 +33,8 @@ cmd='bsub -R "select[mem>$MEMORY] rusage[mem=$MEMORY] span[hosts=1]" \
     -e "${LOG_DIR}/${WORKFLOW}.e" \
     -J "${WORKFLOW}_snakemake" \
     snakemake -s analysis/workflows/${WORKFLOW}/Snakefile \
-    --profile lsf --verbose --latency-wait 30 --keep-going'
+    --profile lsf --verbose --latency-wait 120 --keep-going'
+echo "$cmd"
 if [[ "$2" != "no_singu" ]]; then cmd="${cmd} --use-singularity"; fi 
 #Note: pass args to singu via '--singularity-args "$SINGULARITY_ARGS"'.
 # The environment variables (SINGULARITY_CONTAIN, SINGULARITY_BINDPATH) replace need for this.
