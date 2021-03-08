@@ -2,8 +2,12 @@ from typing import List
 from csv import DictReader
 from pathlib import Path
 
+GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
+gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
 
-def get_tool_vcf(wildcards):
+
+def ev_get_tool_vcf(wildcards):
     varcall_tool = map(
         lambda target: wildcards.tool.startswith(target),
         ["cortex", "minospb", "gram_adju"],
@@ -11,6 +15,8 @@ def get_tool_vcf(wildcards):
     if wildcards.tool == "baseline":
         return f'{config["input_data"]}/template.vcf.gz'
     elif wildcards.tool == "myo_7_pf_genes":
+        return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
+    elif wildcards.tool == "paolo_pvgv":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif any(varcall_tool):
         tool_path = f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/'
@@ -34,3 +40,56 @@ def load_pf6_validation(tsv_fname: str) -> List[str]:
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
         return list(map(lambda row: row["Sample"], reader))
+
+
+def load_pvgv_validation(tsv_fname: str) -> List[str]:
+    with open(tsv_fname) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        return list(map(lambda row: row["Sample ID"], reader))
+
+
+def ev_get_expected_alignments(wildcards):
+    """
+    For mapping-to-assembly-based call validation
+    """
+    pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
+    if wildcards.gene_list_name.startswith("pf6"):
+        # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
+        tools = [
+            "baseline",
+            "minospb",
+            gram_adju,
+            "cortex",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
+        ]
+    else:
+        raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
+    return expand(
+        f"{output_bowtie2_pf}/{wildcards.gene_list_name}/{{tool}}/{{sample_name}}.sam",
+        sample_name=pacb_ilmn_snames,
+        tool=tools,
+    )
+
+
+def ev_get_expected_stats(wildcards):
+    """
+    For induced_ref mapping based call validation
+    """
+    if wildcards.dataset_name.startswith("pf6"):
+        tools = [
+            "cortex",
+            "myo_7_pf_genes",
+            f"{gram_jointgeno}__pf6_analysis_set__7__13",
+        ]
+        samples = load_pf6_validation(config["pf6_validation_tsv"])
+    elif wildcards.dataset_name.startswith("pvgv"):
+        tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
+        samples = load_pvgv_validation(config["pvgv_validation_tsv"])
+    else:
+        raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
+    return expand(
+        f"{output_ir}/{wildcards.dataset_name}/{wildcards.gene_list}/{{tool}}/{{sample_name}}_ir_stats.tsv",
+        tool=tools,
+        sample_name=samples,
+    )

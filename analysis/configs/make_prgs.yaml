@@ -1,2 +1,2 @@
-min_match_len: [3, 7]
+min_match_len: [7, 12]
 flank_size: 5000

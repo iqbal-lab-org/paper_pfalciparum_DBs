@@ -14,6 +14,7 @@ container/built
 container/legacy_built
 analysis/outputs
 analysis/logs
+analysis/input_data/barry_lab/paolo_pvgv*
 
 # python
 __pycache__
