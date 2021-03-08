@@ -20,7 +20,12 @@ def get_tool_vcf(wildcards):
             tool_path += "final.vcf.gz"
         return tool_path
     elif wildcards.tool.startswith("gram_jointgeno"):
-        return f'{config["jointgeno_dir"]}/{wildcards.tool}/pf6_analysis_set/{wildcards.gene_list_name}_7_13/{wildcards.sample_name}/final.vcf.gz'
+        elems = wildcards.tool.split("__")
+        gram_version = elems[0]
+        dataset_name = elems[1]
+        prg_min_match_len = elems[2]
+        prg_kmer_size = elems[3]
+        return f'{config["jointgeno_dir"]}/{gram_version}/{dataset_name}/{wildcards.gene_list_name}_{prg_min_match_len}_{prg_kmer_size}/{wildcards.sample_name}/final.vcf.gz'
     else:
         raise ValueError(f"Unsupported toolname {wildcards.tool}")
 

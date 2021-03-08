@@ -22,8 +22,6 @@ container: config["container_gramtools"]
 
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
-gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
-gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_varifier_pf = output_base / "pacb_ilmn_pf" / "varifier"
 output_bowtie2_pf = output_base / "pacb_ilmn_pf" / "bowtie2"
@@ -31,11 +29,18 @@ output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
 mk_output_dirs(dir())
 
+# Samples
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
-pf6_validation_samples = load_pf6_validation(config["pf6_validation_tsv"])
+pf6_validation_samples = load_pf6_validation(config["pf6_validation_tsv"])[:2]
+
+# Gramtools genotyping outputs
+gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
+gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
+gram_jointgenos_pf6 = [f'{gram_jointgeno}__pf6_analysis_set__7__13']
+gram_jointgenos_pacb = [f'{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13']
 
 
 rule all:
@@ -114,7 +119,7 @@ rule ev_bowtie2_pf_stats:
             f"{output_bowtie2_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
             sample_name=pacb_ilmn_snames,
             # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
-            tool=["minospb", gram_adju, "cortex", "baseline"],
+            tool=["minospb", gram_adju, "cortex", "baseline"] + gram_jointgenos_pacb,
             allow_missing=True,
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
@@ -211,7 +216,7 @@ rule ev_induced_ref_collect_all_stats:
     input:
         expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
-            tool=[f"cortex", "myo_7_pf_genes", gram_jointgeno],
+            tool=[f"cortex", "myo_7_pf_genes"] + gram_jointgenos_pf6,
             sample_name=pf6_validation_samples,
             allow_missing=True,
         ),

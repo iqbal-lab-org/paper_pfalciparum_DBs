@@ -8,6 +8,7 @@ configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
 include: f"../common_utils.py"
+include: "utils.py"
 
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
@@ -15,12 +16,12 @@ output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gram_build = output_base / f"gram_build_{GMTOOLS_COMMIT}"
 output_gram_gtype = output_base / f"gram_jointgeno_{GMTOOLS_COMMIT}"
 mk_output_dirs(dir())
-
 prg_dir = f'{config["output_dir"]}/make_prgs'
 
 
-dataset_names = ["pf6_analysis_set"]
-gene_list_names = ["pf6_25_genes"]
+# These two arrays' elements are paired together
+dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set"]
+gene_list_names = ["pf6_25_genes", "pf6_25_genes"]
 
 
 def expand_inputs(dataset_name, gene_list_name):
@@ -63,7 +64,7 @@ rule jg_gramtools_build:
 
 rule jg_gramtools_genotype:
     input:
-        gram_build=rules.jg_gramtools_build.output,
+        gram_build=jg_get_gram_build,
         reads=get_reads,
     output:
         vcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",

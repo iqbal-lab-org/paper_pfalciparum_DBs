@@ -59,18 +59,19 @@ def get_assembly(wildcards):
 
 
 def get_reads(wildcards):
-    if wildcards.dataset_name.startswith("pf6"):
-        return [
-            f'{config["dl_output_dir"]}/pf6/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
-            for i in [1, 2]
-        ]
-    elif wildcards.dataset_name.startswith("pvgv"):
-        return [
-            f'{config["dl_output_dir"]}/pvgv/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
-            for i in [1, 2]
-        ]
-    else:
-        raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
+    templated_reads = [
+        f'{config["dl_output_dir"]}/{{dataset_name}}/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
+        for i in [1, 2]
+    ]
+    for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf"]:
+        if wildcards.dataset_name.startswith(recognised_name):
+            # This allows joint genotyping to use pacb_ilmn_pf samples on a specifiable pf6 graph
+            replacement = wildcards.dataset_name.split("@")[0]
+            return [
+                read_file.format(dataset_name=replacement)
+                for read_file in templated_reads
+            ]
+    raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
 
 
 def get_ref_genome(wildcards):
@@ -80,15 +81,24 @@ def get_ref_genome(wildcards):
         "pvgv": "PvivaxP01",
         "pacb_ilmn_pf": "Pfalciparum",
     }
-    return f'{config["dl_output_dir"]}/ref_genomes/{ds_to_ref[wildcards.dataset_name]}.genome.fasta.gz'
+    for key, val in ds_to_ref.items():
+        if wildcards.dataset_name.startswith(key):
+            return f'{config["dl_output_dir"]}/ref_genomes/{val}.genome.fasta.gz'
+    raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
 
 
 def get_sample_names(dataset_name):
     if dataset_name == "pf6_analysis_set":
-        pf6_analysis_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
-        return [rec.sample_name for rec in pf6_analysis_samples]
+        loaded_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
+    elif dataset_name.startswith("pacb_ilmn_pf"):
+        loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     else:
+        loaded_samples = None
+
+    if loaded_samples is None:
         raise ValueError(f"Support for {dataset_name} not implemented")
+    else:
+        return [rec.sample_name for rec in loaded_samples]
 
 
 def load_bed(gene_list_name):

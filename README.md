@@ -11,13 +11,35 @@ The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
 
 To run a workflow, ... [TODO]
 
-## List of workflows
+## List and description of workflows
 
 ### download_data
+3 main datasets:
+
+  * pf6: downloads all p. falciparum read sets from malariaGEN
+  * pvgv: downloads all p. vivax read sets from malariaGEN
+  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples
 
 ### call_variants
 
+2 main operations:
+
+   * Runs cortex on all pf6 and pvgv samples
+   * Runs samtools, cortex and gramtools (adjudicating samtools and cortex calls) on pacb_ilmn_pf samples. This allows `eval_varcalls` workflow to evaluate the calls for all three tools.
+
 ### eval_varcalls
+
+### make_prgs
+
+2 main operations:
+    * Make a prg based on cortex calls in pf6 samples. Configurable parameters are:
+       - Which pf6 samples to use for graph construction
+       - Which genes to build the prg on
+       - What `min_match_len` to use for `make_prg`
+    * Make a prg based on cortex calls in pvgv samples.
+
+### joint_genotyping
+
 
 
 ## Development
