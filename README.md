@@ -44,6 +44,7 @@ To run a workflow, ... [TODO]
 
 ## Development
 
+### Testing without built container
 To avoid rebuilding a container everytime a different version of the gramtools codebase is tested, it is installed locally:
 
 ```
@@ -52,6 +53,10 @@ pip install -e <path/to/gramtools>
 ```
 
 This means the file pyrequirements.txt should not be produced by running `pip freeze > pyrequirements.txt`.
+
+### Workflow idiosyncracies
+
+* In each workflow I load a global configfile ("common.yaml") and a set of common python utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py", and "common_utils.py" must be loaded before other "utils.py".
 
 
 # Genes

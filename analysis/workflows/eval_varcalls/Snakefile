@@ -34,8 +34,6 @@ pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 
-# Gramtools genotyping outputs
-
 
 rule all:
     input:

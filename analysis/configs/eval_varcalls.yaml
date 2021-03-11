@@ -1,5 +1,3 @@
 assemblies_dir: "analysis/outputs/download_data/pacb_ilmn_pf/assemblies"
 pf6_gene_lists: ["pf6_25_genes"]
 pvgv_gene_lists: ["pvivax_7_genes"]
-pf6_validation_tsv: "analysis/input_data/sample_lists/pf6/pf6_500_random_subsample.tsv"
-pvgv_validation_tsv: "analysis/input_data/sample_lists/pvgv/pvgv_validation_samples.tsv"

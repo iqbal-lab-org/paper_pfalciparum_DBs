@@ -36,18 +36,6 @@ def ev_get_tool_vcf(wildcards):
         raise ValueError(f"Unsupported toolname {wildcards.tool}")
 
 
-def load_pf6_validation(tsv_fname: str) -> List[str]:
-    with open(tsv_fname) as tsvfile:
-        reader = DictReader(tsvfile, delimiter="\t")
-        return list(map(lambda row: row["Sample"], reader))
-
-
-def load_pvgv_validation(tsv_fname: str) -> List[str]:
-    with open(tsv_fname) as tsvfile:
-        reader = DictReader(tsvfile, delimiter="\t")
-        return list(map(lambda row: row["Sample ID"], reader))
-
-
 def ev_get_expected_alignments(wildcards):
     """
     For mapping-to-assembly-based call validation
@@ -82,10 +70,10 @@ def ev_get_expected_stats(wildcards):
             "myo_7_pf_genes",
             f"{gram_jointgeno}__pf6_analysis_set__7__13",
         ]
-        samples = load_pf6_validation(config["pf6_validation_tsv"])
+        samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):
         tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
-        samples = load_pvgv_validation(config["pvgv_validation_tsv"])
+        samples = record_to_sample_names(load_pvgv(config["pvgv_validation_tsv"]))
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
     return expand(

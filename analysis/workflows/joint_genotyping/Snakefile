@@ -20,19 +20,24 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 
 
 # These two arrays' elements are paired together
-dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
-gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
+#dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
+#gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
+dataset_names = ["pf6_analysis_set_3000", "pacb_ilmn_pf@pf6_analysis_set_3000"]
+gene_list_names = ["pf6_25_genes", "pf6_25_genes"]
 
 
 def expand_inputs(dataset_name, gene_list_name):
     """
     Produces the gramtools output vcfs based on a dataset name, paired with a gene list name.
     """
+    sample_names=get_sample_names(dataset_name)
+    # For testing purposes, only use validation samples
+    sample_names = filter_to_validation(sample_names, dataset_name)
     return expand(
         f"{output_gram_gtype}/{dataset_name}/{gene_list_name}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
         min_match_len=config["min_match_len"],
         kmer_size=config["kmer_size"],
-        sample_name=get_sample_names(dataset_name),
+        sample_name=sample_names,
     )
 
 
