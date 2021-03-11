@@ -65,16 +65,14 @@ def get_reads(wildcards):
     ]
     for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf"]:
         if wildcards.dataset_name.startswith(recognised_name):
-            # This allows joint genotyping to use pacb_ilmn_pf samples on a specifiable pf6 graph
-            replacement = wildcards.dataset_name.split("@")[0]
             return [
-                read_file.format(dataset_name=replacement)
+                read_file.format(dataset_name=recognised_name)
                 for read_file in templated_reads
             ]
     raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
 
 
-def get_ref_genome(wildcards):
+def get_ref_genome_no_wildcards(dataset_name):
     ds_to_ref = {
         "pf6": "Pfalciparum",
         "pf6_analysis_set": "Pfalciparum",
@@ -82,35 +80,13 @@ def get_ref_genome(wildcards):
         "pacb_ilmn_pf": "Pfalciparum",
     }
     for key, val in ds_to_ref.items():
-        if wildcards.dataset_name.startswith(key):
+        if dataset_name.startswith(key):
             return f'{config["dl_output_dir"]}/ref_genomes/{val}.genome.fasta.gz'
-    raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
+    raise ValueError(f"Support for {dataset_name} not implemented")
 
 
-def get_sample_names(dataset_name):
-    if dataset_name == "pf6_analysis_set":
-        loaded_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
-    elif dataset_name.startswith("pacb_ilmn_pf"):
-        loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-    elif dataset_name == "pvgv":
-        loaded_samples = load_pvgv(config["pvgv_tsv"])
-    else:
-        loaded_samples = None
-
-    if loaded_samples is None:
-        raise ValueError(f"Support for {dataset_name} not implemented")
-    else:
-        return [rec.sample_name for rec in loaded_samples]
-
-
-def load_bed(gene_list_name):
-    bed_fname = f'{config["gene_bed_dir"]}/{gene_list_name}.bed'
-    result = list()
-    with open(bed_fname) as fin:
-        for line in fin:
-            name = line.split("\t")[3]
-            result.append(name)
-    return result
+def get_ref_genome(wildcards):
+    return get_ref_genome_no_wildcards(wildcards.dataset_name)
 
 
 ##################
@@ -186,16 +162,36 @@ def load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
     return result
 
 
-def find_reads(wildcards) -> List[str]:
-    reads_dir = f'{config["ilmn_reads_dir"]}/{wildcards.sample}'
-    reads_files = glob(f"{reads_dir}/**/**/*.fastq.gz")
-    reads_files += glob(f"{reads_dir}/**/*.fastq.gz")
-    reads_files += glob(f"{reads_dir}/*.fastq.gz")
-    if len(reads_files) == 0:
-        raise FileNotFoundError(f"No reads files found in {reads_dir}")
-    for read_file in reads_files:
-        if " " in read_file:
-            raise ValueError(
-                f"file {read_file} has whitespace in it, this breaks the pipeline. rename the file or change the separator in the pipeline at {sys.argv[0]}"
-            )
-    return reads_files
+def record_to_sample_names(records: List[ENARecord]):
+    return [rec.sample_name for rec in records]
+
+
+def get_sample_names(dataset_name):
+    if dataset_name == "pf6_analysis_set":
+        loaded_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
+    elif dataset_name in {"pf6_analysis_set_1500", "pf6_analysis_set_3000"}:
+        loaded_samples = load_pf6(
+            f"analysis/input_data/sample_lists/pf6/{dataset_name}.tsv",
+            use_analysis_set=True,
+        )
+    elif dataset_name.startswith("pacb_ilmn_pf"):
+        loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    elif dataset_name == "pvgv":
+        loaded_samples = load_pvgv(config["pvgv_tsv"])
+    else:
+        loaded_samples = None
+
+    if loaded_samples is None:
+        raise ValueError(f"Support for {dataset_name} not implemented")
+    else:
+        return record_to_sample_names(loaded_samples)
+
+
+def load_bed(gene_list_name):
+    bed_fname = f'{config["gene_bed_dir"]}/{gene_list_name}.bed'
+    result = list()
+    with open(bed_fname) as fin:
+        for line in fin:
+            name = line.split("\t")[3]
+            result.append(name)
+    return result

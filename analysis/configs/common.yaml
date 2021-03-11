@@ -16,5 +16,7 @@ container_minos: "container/built/minospb.sif"
 
 # Sample tsvs
 pf6_tsv: "analysis/input_data/sample_lists/pf6/pf6_samples.tsv"
+pf6_validation_tsv: "analysis/input_data/sample_lists/pf6/pf6_500_random_subsample.tsv"
 pvgv_tsv: "analysis/input_data/sample_lists/pvgv/pvgv_samples.tsv"
+pvgv_validation_tsv: "analysis/input_data/sample_lists/pvgv/pvgv_validation_samples.tsv"
 pacb_ilmn_pf_tsv: "analysis/input_data/sample_lists/pacb_ilmn_pf/pacb_ilmn_pf.tsv"

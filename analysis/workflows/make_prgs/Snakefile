@@ -20,23 +20,30 @@ container: config["container_gramtools"]
 include: f"../common_utils.py"
 include: f"../{WORKFLOW}/utils.py"
 
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_beds = output_base / "beds"
+
 ##### 
 ## Change the parameters below to trigger prg construction for different samples and genes
-## Make sure the genes correspond to which dataset the samples are from; eg pf genes for pf6 samples.
-## "ref" is prepended so that we place a ref genome slice at the beginning of the msas/prgs.
+## This cannot cheaply be automated, because of rule 'mp_induce_gene_sequences' needs to know the set of genes produced; the alternative is to run this rule sample x gene times, but that's too many jobs.
 
 ## P falciparum
-#samples = ["ref"] + get_sample_names("pf6_analysis_set")
-#genes = load_bed("pf6_25_genes")
+# pf6 analysis set
+#dataset_name="pf6_analysis_set"
+# pf6 analysis 3k subset
+output_gene_portions = output_base / "gene_portions_pf6"
+dataset_name="pf6_analysis_set_1500"
+gene_list_name="pf6_25_genes"
 
 ## P vivax
-dataset_name="pvgv"
-gene_list_name="pvivax_7_genes"
-samples = ["ref"] + get_sample_names(dataset_name)
-genes = load_bed("pvivax_7_genes")
+#dataset_name="pvgv"
+#gene_list_name="pvivax_7_genes"
+
+## "ref" must be prepended to sample names so that we place a ref genome slice at the beginning of the msas/prgs.
+sample_names = ["ref"] + get_sample_names(dataset_name)
+genes = load_bed(gene_list_name)
 ##### 
 
-output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_catted_genes = Path(
     f'{output_base}/{dataset_name}/{gene_list_name}/catted_genes'
     )
@@ -53,14 +60,14 @@ rule all:
 
 rule mp_make_beds:
     input:
-        bed=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
-        ref_genome_index=lambda wcards: f"{get_ref_genome(wcards)}.fai",
+        bed=f'{config["gene_bed_dir"]}/{gene_list_name}.bed',
+        ref_genome_index=f'{get_ref_genome_no_wildcards(dataset_name)}.fai',
     output:
-        bed_genes=f'{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/genes_{config["flank_size"]}.bed',
+        bed_genes=f'{output_beds}/{gene_list_name}/genes_{config["flank_size"]}.bed',
         bed_invariants=(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/invariant.bed"
+            f"{output_beds}/{gene_list_name}/invariant.bed"
         ),
-        bed_full=f'{output_base}/{{dataset_name}}/{{gene_list_name}}/beds/genes_{config["flank_size"]}_and_invariant.bed',
+        bed_full=f'{output_beds}/{gene_list_name}/genes_{config["flank_size"]}_and_invariant.bed',
     params:
         extension_script=f'{config["scripts"]}/{WORKFLOW}/extend_intervals.py',
         flank_size=config["flank_size"],
@@ -81,11 +88,11 @@ rule mp_make_beds:
 rule mp_induce_gene_sequences:
     input:
         bed_genes=rules.mp_make_beds.output.bed_genes,
-        ref_genome=get_ref_genome,
+        ref_genome=get_ref_genome_no_wildcards(dataset_name),
         vcf=get_one_vcf,
     output:
         expand(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
+            f"{output_gene_portions}/{{sample_name}}/{{gene}}.fa",
             gene=genes,
             allow_missing=True,
         ),
@@ -112,10 +119,9 @@ rule mp_induce_gene_sequences:
 
 rule mp_cat_var_portions:
     input:
-        # The 'ref' sample should occur first in samples list, so that it is first path in make_prg produced prg.
         samples=expand(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/gene_portions/{{sample_name}}/{{gene}}.fa",
-            sample_name=samples,
+            f"{output_gene_portions}/{{sample_name}}/{{gene}}.fa",
+            sample_name=sample_names,
             allow_missing=True,
         ),
     output:
