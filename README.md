@@ -5,6 +5,14 @@ The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
   - pf6 metadata/vcfs (under pfcommunityproject/Pf6)
   - pvivax vcfs (under pvgv)
 
+## pf6
+
+Some samples are duplicates with low coverage, estimated to be non-clonal (via Fws), 'continent mismatches'
+(labeled from a continent but their genotypic data maps them to another); these are marked as not 'Analysis_set' in the
+'Exclusion reason' column. 
+
+We build graphs from and genotype only 'Analysis_set' samples.
+
 # Workflows
 
 ## Running a workflow

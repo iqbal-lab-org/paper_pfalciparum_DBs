@@ -23,12 +23,19 @@ TRAP (PF3D7_1335900)    |        2         | [4][4],[5][5] | Sporozoite
 AMA1 (PF3D7_1133400)    |        2         | [4][4],[5][5] | Merozoite
 RAMA (PF3D7_0707300)    |        2         | [5][5] | 
 EBA175 (PF3D7_0731500)  |        2         | [4][4],[5][5] | 
-RH5 (PF3D7_0424100)     |        2         | [5][5] | Merozoite
+RH5 (PF3D7_0424100)     |        2         | [5][5],[6][6] | Merozoite
 GLURP (Pf7G8_100039600) |        2         | [4][4],[5][5] | Merozoite
 SERA5 (PF3D7_0207600)   |        2         | [5][5]  | Merozoite
 CelTOS (PF3D7_1216600)  |        2         | [5][5]  | Liver
 P48/45 (PF3D7_1346700)  |        2         | [4][4],[5][5] | Gametocyte
 Pfs25 (PF3D7_1030900)   |        2         | [5][5]
+
+Genes that could further be added:
+
+Gene                    | Reason included  | Paper/doi     | Stage
+:----------:            | :--------------: | :----:    | :---:
+Pf38                    |        2         | [6][6]        | Merozoite
+
 
 ## List of *reason included* codes referred to in the gene table
 
@@ -49,12 +56,14 @@ Set of Polymorphic Genes in Plasmodium falciparum
 * [[3]][3]: Amambua-Ngwa et al 2012, Population Genomic Scan for Candidate Signatures of Balancing Selection to Guide Antigen Characterization in Malaria Parasites
 * [[4]][4]: Barry et al 2009, Contrasting Population Structures of the Genes Encoding Ten Leading Vaccine-Candidate Antigens of the Human Malaria Parasite, Plasmodium falciparum. 
 * [[5]][5]: Beeson et al 2019, Challenges and strategies for developing efficacious and long-lasting malaria vaccines
+* [[6]][6]: Douglas et al 2011, The blood-stage malaria antigen PfRH5 is susceptible to vaccine-inducible cross-strain neutralizing antibody
 
 [1]: https://wellcomeopenresearch.org/articles/6-42/v1
 [2]: https://academic.oup.com/mbe/article/27/10/2344/967205
 [3]: https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1002992
 [4]: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0008497
 [5]: https://stm.sciencemag.org/content/11/474/eaau1458
+[6]: https://www.nature.com/articles/ncomms1615
 
 
 ## Other important papers/links
