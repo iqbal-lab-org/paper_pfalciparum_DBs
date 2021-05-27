@@ -31,8 +31,9 @@ output_beds = output_base / "beds"
 # pf6 analysis set
 #dataset_name="pf6_analysis_set"
 # pf6 analysis 3k subset
+#dataset_name="pf6_analysis_set_3000"
 output_gene_portions = output_base / "gene_portions_pf6"
-dataset_name="pf6_analysis_set_1500"
+dataset_name="pf6_analysis_set"
 gene_list_name="pf6_25_genes"
 
 ## P vivax

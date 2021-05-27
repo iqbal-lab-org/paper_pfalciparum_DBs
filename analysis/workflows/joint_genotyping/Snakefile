@@ -22,7 +22,7 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 # These two arrays' elements are paired together
 #dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
 #gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
-dataset_names = ["pf6_analysis_set_3000", "pacb_ilmn_pf@pf6_analysis_set_3000"]
+dataset_names = ["pf6_analysis_set_1500", "pacb_ilmn_pf@pf6_analysis_set_1500"]
 gene_list_names = ["pf6_25_genes", "pf6_25_genes"]
 
 
