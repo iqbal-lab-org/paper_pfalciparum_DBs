@@ -20,12 +20,14 @@ configfile: f"analysis/configs/{WORKFLOW}.yaml"
 
 
 include: "../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
 
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gene_beds = Path(f"{output_base}/gene_beds")
 output_ref_genomes = Path(f"{output_base}/ref_genomes")
 output_pacb_pf_assemblies = Path(f"{output_base}/pacb_ilmn_pf/assemblies")
+output_vcfs = Path(f"{output_base}/vcfs")
 mk_output_dirs(dir())
 
 ena_records = (
@@ -39,6 +41,8 @@ pacb_pf_fnames = [
     f"{record.sample_name}.April2018.fasta.gz"
     for record in load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 ]
+
+pf_chrom_list = list(map(lambda v: f"0{v}", range(1,10))) + list(map(str,range(10,15)))
 
 
 rule all:
@@ -61,6 +65,7 @@ rule all:
             f"{output_gene_beds}/{{gene_list_name}}.bed",
             gene_list_name=config["gene_list_names"],
         ),
+        vcfs=f"{output_vcfs}/pf6/combined.vcf.gz",
 
 
 rule download_data_ena:
@@ -163,3 +168,37 @@ rule download_data_make_gene_bed:
         gff_to_bed_script=f'{config["scripts"]}/{WORKFLOW}/gff_to_bed.sh',
     shell:
         "bash {params.gff_to_bed_script} {input.gene_list_file} {input.genome_gff} {output}"
+
+ruleorder: download_data_concat_vcfs > download_data_get_vcf
+
+rule download_data_get_vcf:
+    output:
+        vcf=f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
+    params:
+        vcf_url=get_vcf_url,
+    shadow:
+        "shallow"
+    shell:
+        """
+        mkdir -p $(dirname {output.vcf})
+        if [[ ! -e {output.vcf} ]]; then
+            wget {params.vcf_url} -nc -O {output.vcf}
+        fi
+        wget {params.vcf_url}.md5 -O file_md5sum
+        diff <(cut -f 1 file_md5sum) <(md5sum {output.vcf} | cut -f 1)
+        """
+
+
+rule download_data_concat_vcfs:
+    input:
+        vcfs=expand(
+                f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
+                chrom=pf_chrom_list,
+                allow_missing=True
+        )
+    output:
+        vcf=f"{output_vcfs}/{{dataset_name}}/combined.vcf.gz",
+    shell:
+        """
+        bcftools concat {input.vcfs} > {output.vcf}
+        """

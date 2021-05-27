@@ -4,6 +4,10 @@ ref_genomes:
     extensions: [".genome.fasta.gz", ".genome.fasta.gz.fai", ".gff3.gz"]
 
 pacb_pf_ftp: "ftp://ftp.sanger.ac.uk/pub/project/pathogens/Plasmodium/falciparum/PF3K/ReferenceGenomes_Version1/GENOMES/*.fasta.gz"
+vcf:
+    pf6_ftp: "ftp://ngs.sanger.ac.uk/production/malaria/pfcommunityproject/Pf6/Pf_6_vcf/"
+    pf6_fname_template: "Pf_60_public_Pf3D7_{chrom}_v3.final.vcf.gz"
+
 gene_list_dir: "analysis/input_data/gene_lists"
 gene_list_names: ["pf6_25_genes","pvivax_7_genes"]
 
