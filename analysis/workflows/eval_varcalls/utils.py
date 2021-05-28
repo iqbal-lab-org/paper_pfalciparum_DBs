@@ -70,13 +70,14 @@ def ev_get_expected_stats(wildcards):
     """
     if wildcards.dataset_name.startswith("pf6"):
         tools = [
+            "baseline",
             "cortex",
             "myo_7_pf_genes",
             f"{gram_jointgeno}__pf6_analysis_set__7__13",
-            f"{gram_jointgeno}__pf6_analysis_set_3000__7__13",
-            f"{gram_jointgeno}__pf6_analysis_set_3000__12__13",
-            f"{gram_jointgeno}__pf6_analysis_set_1500__7__13",
-            f"{gram_jointgeno}__pf6_analysis_set_1500__12__13",
+            # f"{gram_jointgeno}__pf6_analysis_set_3000__7__13",
+            # f"{gram_jointgeno}__pf6_analysis_set_3000__12__13",
+            # f"{gram_jointgeno}__pf6_analysis_set_1500__7__13",
+            # f"{gram_jointgeno}__pf6_analysis_set_1500__12__13",
         ]
         samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):

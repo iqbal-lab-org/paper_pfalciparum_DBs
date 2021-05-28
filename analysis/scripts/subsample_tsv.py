@@ -28,7 +28,6 @@ def main():
     if inclusion_tsv is not None:
         with inclusion_tsv.open() as fin:
             reader = DictReader(fin, delimiter="\t")
-            header = "\t".join(reader.fieldnames)
             for row in reader:
                 included_samples.add(row["Sample"])
 
@@ -41,6 +40,7 @@ def main():
     output_samples = list()
     with input_tsv.open() as fin:
         reader = DictReader(fin, delimiter="\t")
+        header = "\t".join(reader.fieldnames)
         for row in reader:
             if row["Exclusion reason"] == "Analysis_set":
                 line = "\t".join(row.values())

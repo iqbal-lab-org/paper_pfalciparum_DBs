@@ -176,16 +176,15 @@ rule download_data_get_vcf:
         vcf=f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
     params:
         vcf_url=get_vcf_url,
-    shadow:
-        "shallow"
     shell:
         """
         mkdir -p $(dirname {output.vcf})
         if [[ ! -e {output.vcf} ]]; then
             wget {params.vcf_url} -nc -O {output.vcf}
         fi
-        wget {params.vcf_url}.md5 -O file_md5sum
-        diff <(cut -f 1 file_md5sum) <(md5sum {output.vcf} | cut -f 1)
+        wget {params.vcf_url}.md5 -O {output.vcf}.md5
+        # Check downloaded file integrity
+        diff <(cut -f 1 -d ' ' {output.vcf}.md5) <(md5sum {output.vcf} | cut -f 1 -d ' ')
         """
 
 
