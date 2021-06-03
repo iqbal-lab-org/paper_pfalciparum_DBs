@@ -10,7 +10,7 @@ gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
 def ev_get_tool_vcf(wildcards):
     varcall_tool = map(
         lambda target: wildcards.tool.startswith(target),
-        ["cortex", "minospb", "gram_adju"],
+        ["cortex", "octopus", "gram_adju"],
     )
     if wildcards.tool == "baseline":
         return f'{config["input_data"]}/template.vcf.gz'
@@ -18,12 +18,14 @@ def ev_get_tool_vcf(wildcards):
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif wildcards.tool == "paolo_pvgv":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
+    elif wildcards.tool == "pf6":
+        return f'{config["dl_output_dir"]}/vcfs/{wildcards.dataset_name}/combined_{wildcards.gene_list_name}.vcf.gz'
     elif any(varcall_tool):
         tool_path = f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/'
-        if wildcards.tool == "cortex":
-            tool_path += "cortex.vcf.gz"
-        else:
+        if wildcards.tool.startswith("gram"):
             tool_path += "final.vcf.gz"
+        else:
+            tool_path += f"{wildcards.tool}.vcf.gz"
         return tool_path
     elif wildcards.tool.startswith("gram_jointgeno"):
         elems = wildcards.tool.split("__")
@@ -46,7 +48,7 @@ def ev_get_expected_alignments(wildcards):
         # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
         tools = [
             "baseline",
-            "minospb",
+            "octopus",
             gram_adju,
             "cortex",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
@@ -72,12 +74,9 @@ def ev_get_expected_stats(wildcards):
         tools = [
             "baseline",
             "cortex",
+            "pf6",
             "myo_7_pf_genes",
             f"{gram_jointgeno}__pf6_analysis_set__7__13",
-            # f"{gram_jointgeno}__pf6_analysis_set_3000__7__13",
-            # f"{gram_jointgeno}__pf6_analysis_set_3000__12__13",
-            # f"{gram_jointgeno}__pf6_analysis_set_1500__7__13",
-            # f"{gram_jointgeno}__pf6_analysis_set_1500__12__13",
         ]
         samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):

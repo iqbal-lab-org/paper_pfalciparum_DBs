@@ -39,7 +39,7 @@ rule all:
     input:
         varifier_pf_validation=expand(
             f"{output_varifier_pf}/{{tool}}_{{sample_name}}.json",
-            tool=["minospb", gram_adju, "cortex"],
+            tool=["octopus", gram_adju, "cortex"],
             sample_name=pacb_ilmn_snames,
         ),
         bowtie2_pf_validation=expand(
