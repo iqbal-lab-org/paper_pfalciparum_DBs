@@ -1,6 +1,5 @@
 """
-This workflow calls variants using the [clockwork](https://github.com/iqbal-lab-org/clockwork)
-approach: var call with samtools and cortex, and adjudicate (=get consensus calls) using gramtools.
+This workflow calls variants multiple different callers (samtools, octopus, cortex) and adjudicates (=regenotype calls from different callers) using gramtools.
 """
 
 from pathlib import Path
@@ -18,13 +17,21 @@ include: f"../common_utils.py"
 
 container: config["container_gramtools"]
 
+ds_to_ref = {
+    "pf6": "Pfalciparum",
+    "pf6_analysis_set": "Pfalciparum",
+    "pvgv": "PvivaxP01",
+    "pacb_ilmn_pf": "Pfalciparum",
+}
 
 GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gramtools = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
 output_samtools = output_base / "samtools"
+output_octopus = output_base / "octopus"
 output_cortex = output_base / "cortex"
 output_ref_genomes = output_base / "ref_genomes"
+output_mapped_reads = output_base / "mapped_reads"
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
@@ -38,10 +45,10 @@ rule all:
             f"{output_gramtools}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
             record=pacb_ilmn_records,
         ),
-        cortex_calling=expand(
-            f"{output_cortex}/{{record.dataset_name}}/{{record.sample_name}}/cortex.vcf.gz",
-            record=pf6_and_pvgv_records,
-        ),
+        #cortex_calling=expand(
+        #    f"{output_cortex}/{{record.dataset_name}}/{{record.sample_name}}/cortex.vcf.gz",
+        #    record=pf6_and_pvgv_records,
+        #),
 
 
 rule cv_index_ref_genome:
@@ -62,8 +69,7 @@ rule cv_index_ref_genome:
         bwa index {output.idx_prefix}
         """
 
-
-rule cv_run_samtools:
+rule cv_bwa_map_reads:
     input:
         idx_prefix=(
             lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref"
@@ -73,20 +79,57 @@ rule cv_run_samtools:
         ),
         reads=get_reads,
     output:
+        f"{output_mapped_reads}/{{dataset_name}}/{{sample_name}}/mapped.bam"
+    threads: 4
+    shadow:
+        "shallow"
+    resources:
+        mem_mb=4000,
+    shell:
+        """
+        bwa mem -t {threads} -R "@RG\\tID:1\\tSM:{wildcards.sample_name}" {input.idx_prefix} {input.reads} > mapped.sam
+        samtools sort -o {output} -O BAM mapped.sam
+        samtools index {output}
+        """
+
+
+rule cv_run_samtools:
+    input:
+        idx_prefix=(
+            lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref"
+        ),
+        mapped_reads=rules.cv_bwa_map_reads.output,
+    output:
         f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
     threads: 4
     shadow:
         "shallow"
     resources:
         mem_mb=4000,
-    params:
-        samtools_script=f'{config["scripts"]}/{WORKFLOW}/run_samtools.sh',
     shell:
         """
         mkdir -p $(dirname {output})
-        bash {params.samtools_script} {input.idx_prefix} '{input.reads}' {output} {threads}
+        bcftools mpileup -f {input.idx_prefix} {input.mapped_reads} | bcftools call -O z -o {output} -vm --ploidy 1
         """
 
+rule cv_run_octopus:
+    input:
+        ref_genome=get_ref_genome,
+        mapped_reads=rules.cv_bwa_map_reads.output,
+    output:
+        f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
+    threads: 4
+    shadow:
+        "shallow"
+    resources:
+        mem_mb=4000,
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        gzip -dc {input.ref_genome} > ref_genome.fa
+        samtools faidx ref_genome.fa
+        octopus -R ref_genome.fa -I {input.mapped_reads} --threads {threads} --organism-ploidy 1 -o {output}
+        """
 
 rule cv_run_cortex:
     input:
@@ -112,8 +155,8 @@ rule cv_run_cortex:
 rule cv_gramtools_adjudicate:
     input:
         ref_genome=get_ref_genome,
-        samtools_vcf=(
-            f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz"
+        octopus_vcf=(
+            f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz"
         ),
         cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
         reads=get_reads,
@@ -132,7 +175,7 @@ rule cv_gramtools_adjudicate:
         mem_mb=4000,
     shell:
         """
-        gramtools build --ref {input.ref_genome} --vcf {input.samtools_vcf} --vcf {input.cortex_vcf} --kmer_size 12 -o gram
+        gramtools build --ref {input.ref_genome} --vcf {input.octopus_vcf} --vcf {input.cortex_vcf} --kmer_size 12 -o gram
         gramtools genotype --max_threads {threads} -i gram -o genotype --reads {input.reads} --sample_id {wildcards.sample_name}
         mv genotype/genotype/*.vcf.gz {output.vcf}
         mv gram/build_report.json {output.build_rep}

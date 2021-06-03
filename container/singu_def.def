@@ -112,6 +112,14 @@ From: ubuntu:focal
 	cd make_prg && git checkout c02adc35f3a746dfcf45fd01060d7b28f5a72a24
 	pip3 install . && cd .. && rm -r make_prg
 
+    ## octopus variant caller, via bioconda
+	cd ${HOME}
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p venv
+    venv/bin/conda install -y -c conda-forge -c bioconda octopus
+    ln -sf $(pwd)/venv/bin/octopus /usr/bin/octopus
+    rm -r venv/{pkgs,include}
+
     ##### Currently tested ends here #######
 
 
