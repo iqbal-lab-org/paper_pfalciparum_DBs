@@ -63,9 +63,12 @@ rule all:
         ),
         gene_beds=expand(
             f"{output_gene_beds}/{{gene_list_name}}.bed",
-            gene_list_name=config["gene_list_names"],
+            gene_list_name=config["pf6_gene_list_files"]+config["pvivax_gene_list_files"],
         ),
-        vcfs=f"{output_vcfs}/pf6/combined.vcf.gz",
+        vcfs=expand(
+                f"{output_vcfs}/pf6/combined_{{gene_list_name}}.vcf.gz",
+                gene_list_name=config["pf6_gene_list_files"]
+        )
 
 
 rule download_data_ena:
@@ -172,6 +175,8 @@ rule download_data_make_gene_bed:
 ruleorder: download_data_concat_vcfs > download_data_get_vcf
 
 rule download_data_get_vcf:
+    wildcard_constraints:
+        chrom="[0-9]+",
     output:
         vcf=f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
     params:
@@ -199,5 +204,20 @@ rule download_data_concat_vcfs:
         vcf=f"{output_vcfs}/{{dataset_name}}/combined.vcf.gz",
     shell:
         """
-        bcftools concat {input.vcfs} > {output.vcf}
+        bcftools concat -Oz {input.vcfs} > {output.vcf}
+        bcftools index {output.vcf}
+        """
+
+rule download_data_subset_vcfs:
+    input:
+        vcf=f"{output_vcfs}/pf6/combined.vcf.gz",
+        gene_bed=f"{output_gene_beds}/{{gene_list_name}}.bed",
+    output:
+        f"{output_vcfs}/pf6/combined_{{gene_list_name}}.vcf.gz",
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.gene_bed})
+        bcftools view -r "$regions" {input.vcf} -Oz > {output}
+        bcftools index {output}
         """
