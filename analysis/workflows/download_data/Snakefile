@@ -172,7 +172,6 @@ rule download_data_make_gene_bed:
     shell:
         "bash {params.gff_to_bed_script} {input.gene_list_file} {input.genome_gff} {output}"
 
-ruleorder: download_data_concat_vcfs > download_data_get_vcf
 
 rule download_data_get_vcf:
     wildcard_constraints:

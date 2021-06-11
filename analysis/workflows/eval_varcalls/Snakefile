@@ -174,10 +174,14 @@ rule ev_induced_ref_map_reads:
         """
         mkdir -p $(dirname {output.bam})
         # make vcf subsetted at genes listed in input bed
-        cp {input.vcf} input.vcf.gz
-        bcftools index input.vcf.gz
-        regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.bed})
-        bcftools view -r "$regions" -s {wildcards.sample_name} input.vcf.gz -Oz > {output.subsetted_vcf}
+        if [[ {wildcards.tool} == "baseline" ]]; then
+            cp {input.vcf} {output.subsetted_vcf}
+        else
+            cp {input.vcf} input.vcf.gz
+            bcftools index input.vcf.gz
+            regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.bed})
+            bcftools view -r "$regions" -s {wildcards.sample_name} input.vcf.gz -Oz > {output.subsetted_vcf}
+        fi
         bcftools index {output.subsetted_vcf}
 
         # make induced ref genome and map to it
