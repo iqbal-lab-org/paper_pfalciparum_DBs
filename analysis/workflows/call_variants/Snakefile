@@ -35,20 +35,17 @@ output_mapped_reads = output_base / "mapped_reads"
 mk_output_dirs(dir())
 
 pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-pf6_and_pvgv_records = load_pf6(config["pf6_tsv"]) + load_pvgv(config["pvgv_tsv"])
-# ena_records = pacb_ilmn_records + load_pf6(config["pf6_tsv"])
+pf6_records = load_pf6(config["pf6_tsv"],use_analysis_set=True)
+pvgv_records = load_pvgv(config["pvgv_tsv"])
+all_records = pacb_ilmn_records + pf6_records
 
 
 rule all:
     input:
         gramtools_genotyping=expand(
             f"{output_gramtools}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
-            record=pacb_ilmn_records,
+            record=all_records,
         ),
-        #cortex_calling=expand(
-        #    f"{output_cortex}/{{record.dataset_name}}/{{record.sample_name}}/cortex.vcf.gz",
-        #    record=pf6_and_pvgv_records,
-        #),
 
 
 rule cv_index_ref_genome:
@@ -175,7 +172,11 @@ rule cv_gramtools_adjudicate:
         mem_mb=4000,
     shell:
         """
-        gramtools build --ref {input.ref_genome} --vcf {input.octopus_vcf} --vcf {input.cortex_vcf} --kmer_size 12 -o gram
+        filter="PASS,."
+        bcftools view -f "$filter" {input.octopus_vcf} -Ov | awk '$4 $5 !~ /N/ {{print $0}}' > vcf1.vcf
+        bgzip vcf1.vcf
+        bcftools view -f "$filter" {input.cortex_vcf} -Oz -o vcf2.vcf.gz
+        gramtools build --ref {input.ref_genome} --vcf vcf1.vcf.gz --vcf vcf2.vcf.gz --kmer_size 12 -o gram
         gramtools genotype --max_threads {threads} -i gram -o genotype --reads {input.reads} --sample_id {wildcards.sample_name}
         mv genotype/genotype/*.vcf.gz {output.vcf}
         mv gram/build_report.json {output.build_rep}

@@ -75,8 +75,7 @@ def ev_get_expected_stats(wildcards):
             "baseline",
             "cortex",
             "pf6",
-            "myo_7_pf_genes",
-            f"{gram_jointgeno}__pf6_analysis_set__7__13",
+            gram_adju,
         ]
         samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):

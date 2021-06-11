@@ -18,21 +18,22 @@ container: config["container_gramtools"]
 
 
 include: f"../common_utils.py"
+GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
 include: f"../{WORKFLOW}/utils.py"
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_beds = output_base / "beds"
+
 
 ##### 
 ## Change the parameters below to trigger prg construction for different samples and genes
 ## This cannot cheaply be automated, because of rule 'mp_induce_gene_sequences' needs to know the set of genes produced; the alternative is to run this rule sample x gene times, but that's too many jobs.
 
 ## P falciparum
-# pf6 analysis set
-#dataset_name="pf6_analysis_set"
 # pf6 analysis 3k subset
 #dataset_name="pf6_analysis_set_3000"
 output_gene_portions = output_base / "gene_portions_pf6"
+# pf6 analysis set
 dataset_name="pf6_analysis_set"
 gene_list_name="pf6_25_genes"
 
