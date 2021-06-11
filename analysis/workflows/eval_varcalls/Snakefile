@@ -102,7 +102,9 @@ rule ev_bowtie2_pf_map:
             adjusted_start=$((${{elems[1]}} + 1))
             reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
             gene_name=${{elems[3]}}
-            samtools faidx {input.ref_genome} $reg | bcftools consensus input.vcf.gz |
+            sample_name="{wildcards.sample_name}"
+            if [[ "{wildcards.tool}" == "baseline" ]]; then sample_name="sample"; fi
+            samtools faidx {input.ref_genome} $reg | bcftools consensus -s "$sample_name" input.vcf.gz |
                 sed 's@>.*@>'"${{gene_name}}"'@' >> gene_portions.fa
         done
 
@@ -173,9 +175,11 @@ rule ev_induced_ref_map_reads:
     shell:
         """
         mkdir -p $(dirname {output.bam})
+        sample_name="{wildcards.sample_name}"
         # make vcf subsetted at genes listed in input bed
         if [[ {wildcards.tool} == "baseline" ]]; then
             cp {input.vcf} {output.subsetted_vcf}
+            sample_name="sample"
         else
             cp {input.vcf} input.vcf.gz
             bcftools index input.vcf.gz
@@ -185,7 +189,7 @@ rule ev_induced_ref_map_reads:
         bcftools index {output.subsetted_vcf}
 
         # make induced ref genome and map to it
-        bgzip -dc {input.ref_genome} | bcftools consensus {output.subsetted_vcf} > induced_ref.fa
+        bgzip -dc {input.ref_genome} | bcftools consensus -s "$sample_name" {output.subsetted_vcf} > induced_ref.fa
         bwa index induced_ref.fa
         bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
         samtools sort -o {output.bam} -O BAM mapped.sam

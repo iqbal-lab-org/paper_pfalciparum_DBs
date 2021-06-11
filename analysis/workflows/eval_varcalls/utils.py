@@ -19,7 +19,7 @@ def ev_get_tool_vcf(wildcards):
     elif wildcards.tool == "paolo_pvgv":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif wildcards.tool == "pf6":
-        return f'{config["dl_output_dir"]}/vcfs/{wildcards.dataset_name}/combined_{wildcards.gene_list_name}.vcf.gz'
+        return f'{config["dl_output_dir"]}/vcfs/pf6/combined_{wildcards.gene_list_name}.vcf.gz'
     elif any(varcall_tool):
         tool_path = f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/'
         if wildcards.tool.startswith("gram"):
@@ -51,11 +51,6 @@ def ev_get_expected_alignments(wildcards):
             "octopus",
             gram_adju,
             "cortex",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_1500__7__13",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_1500__12__13",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_3000__7__13",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_3000__12__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
@@ -74,6 +69,7 @@ def ev_get_expected_stats(wildcards):
         tools = [
             "baseline",
             "cortex",
+            #"octopus",
             "pf6",
             gram_adju,
         ]

@@ -5,6 +5,15 @@ The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
   - pf6 metadata/vcfs (under pfcommunityproject/Pf6)
   - pvivax vcfs (under pvgv)
 
+## Reference genomes
+
+For *P. falciparum*, I have used the 2018-11 version for variant calling and graph building (ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/). pf6 used the 2016-07 version in their release VCFs (see pf6 paper). However, I checked the following:
+
+* The two genomes have exactly the same chromosome sizes
+* The two annotation files (GFF) have exactly the same coordinates for pf6_26_genes
+
+On that basis it is fine to use 2018-11 version for evaluation purposes (see eval_varcalls workflow)
+
 ## pf6
 
 Some samples are duplicates with low coverage, estimated to be non-clonal (via Fws), 'continent mismatches'
