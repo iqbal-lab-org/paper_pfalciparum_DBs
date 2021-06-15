@@ -167,6 +167,9 @@ rule ev_induced_ref_map_reads:
         bai=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam.bai",
         subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz",
         subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
+        induced_ref=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.fa.gz",
+    params:
+        vcf_overlap_remover=f'{config["scripts"]}/remove_vcf_overlaps.py', 
     threads: 4
     shadow:
         "shallow"
@@ -184,7 +187,11 @@ rule ev_induced_ref_map_reads:
             cp {input.vcf} input.vcf.gz
             bcftools index input.vcf.gz
             regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.bed})
-            bcftools view -r "$regions" -s {wildcards.sample_name} input.vcf.gz -Oz > {output.subsetted_vcf}
+            bcftools view -r "$regions" -s {wildcards.sample_name} input.vcf.gz -Oz > subsetted.vcf.gz
+            if [[ {wildcards.tool} == "octopus" ]]; then
+                python3 {params.vcf_overlap_remover} subsetted.vcf.gz {output.subsetted_vcf}
+            else cp subsetted.vcf.gz {output.subsetted_vcf}
+            fi
         fi
         bcftools index {output.subsetted_vcf}
 
@@ -194,6 +201,7 @@ rule ev_induced_ref_map_reads:
         bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
         samtools sort -o {output.bam} -O BAM mapped.sam
         samtools index {output.bam}
+        bgzip --stdout induced_ref.fa > {output.induced_ref}
         """
 
 

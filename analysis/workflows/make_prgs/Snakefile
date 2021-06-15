@@ -206,6 +206,6 @@ rule mp_concat_prgs:
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/concat_prgs.py',
     resources:
-        mem_mb=10000,
+        mem_mb=15000,
     shell:
         "python3 {params.script} $(dirname {output}) {input.bed_full} {output}"

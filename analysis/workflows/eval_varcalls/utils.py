@@ -51,6 +51,8 @@ def ev_get_expected_alignments(wildcards):
             "octopus",
             gram_adju,
             "cortex",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__12__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
@@ -69,9 +71,11 @@ def ev_get_expected_stats(wildcards):
         tools = [
             "baseline",
             "cortex",
-            #"octopus",
+            "octopus",
             "pf6",
             gram_adju,
+            f"{gram_jointgeno}__pf6_analysis_set__7__13",
+            #f"{gram_jointgeno}__pf6_analysis_set__12__13",
         ]
         samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):
