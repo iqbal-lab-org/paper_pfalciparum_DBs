@@ -35,7 +35,7 @@ output_beds = output_base / "beds"
 output_gene_portions = output_base / "gene_portions_pf6"
 # pf6 analysis set
 dataset_name="pf6_analysis_set"
-gene_list_name="pf6_25_genes"
+gene_list_name="pf6_26_genes"
 
 ## P vivax
 #dataset_name="pvgv"
@@ -47,7 +47,7 @@ genes = load_bed(gene_list_name)
 ##### 
 
 output_catted_genes = Path(
-    f'{output_base}/{dataset_name}/{gene_list_name}/catted_genes'
+    f'{output_base}/{dataset_name}/catted_genes'
     )
 mk_output_dirs(dir())
 
@@ -55,7 +55,7 @@ mk_output_dirs(dir())
 rule all:
     input:
         prgs=expand(
-            f"{output_base}/{dataset_name}/{gene_list_name}/mn5_mml{{min_match_len}}/prg",
+            f"{output_base}/{dataset_name}/mn5_mml{{min_match_len}}/{gene_list_name}_prg",
             min_match_len=config["min_match_len"],
         ),
 
@@ -127,7 +127,7 @@ rule mp_cat_var_portions:
             allow_missing=True,
         ),
     output:
-        gene_seqs=f"{output_base}/{{dataset_name}}/{{gene_list_name}}/catted_genes/{{gene}}.fa",
+        gene_seqs=f"{output_base}/{{dataset_name}}/catted_genes/{{gene}}.fa",
     run:
         # Use run, not shell, as too long list of arguments to shell script failed in snakemake v5.14.0.
         with open(output.gene_seqs, "w") as fout:
@@ -142,10 +142,10 @@ rule mp_make_msas:
         rules.mp_cat_var_portions.output.gene_seqs,
     output:
         gene_msa=(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/msas/{{gene}}.msa"
+            f"{output_base}/{{dataset_name}}/msas/{{gene}}.msa"
         ),
     resources:
-        mem_mb=5000,
+        mem_mb=8000,
     shell:
         """
         mkdir -p $(dirname {output.gene_msa})
@@ -157,7 +157,7 @@ rule mp_make_var_prg:
     input:
         rules.mp_make_msas.output.gene_msa,
     output:
-        gene_prg=f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
+        gene_prg=f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
     resources:
         mem_mb=5000,
     shadow:
@@ -176,7 +176,7 @@ rule mp_make_nonvar_prg_portions:
         ref_genome=get_ref_genome,
     output:
         nonvar_prgs=touch(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/nonvars_done.txt"
+            f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}/nonvars_done.txt"
         ),
     shell:
         """
@@ -196,16 +196,17 @@ rule mp_concat_prgs:
     input:
         nonvar_prgs=rules.mp_make_nonvar_prg_portions.output[0],
         var_prgs=expand(
-            f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
+            f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}/{{gene}}.bin",
             gene=genes,
             allow_missing=True,
         ),
         bed_full=rules.mp_make_beds.output.bed_full,
     output:
-        f"{output_base}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
+        f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}/{{gene_list_name}}_prg",
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/concat_prgs.py',
+        prg_dirname=f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}",
     resources:
         mem_mb=15000,
     shell:
-        "python3 {params.script} $(dirname {output}) {input.bed_full} {output}"
+        "python3 {params.script} {params.prg_dirname} {input.bed_full} {output}"

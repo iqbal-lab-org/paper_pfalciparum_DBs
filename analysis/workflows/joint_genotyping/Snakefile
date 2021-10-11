@@ -23,7 +23,7 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 #dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
 #gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
 dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set"]
-gene_list_names = ["pf6_25_genes", "pf6_25_genes"]
+gene_list_names = ["pf6_26_genes", "pf6_26_genes"]
 
 
 def expand_inputs(dataset_name, gene_list_name):
@@ -55,7 +55,7 @@ rule all:
 rule jg_gramtools_build:
     input:
         ref_genome=get_ref_genome,
-        prg=f"{prg_dir}/{{dataset_name}}/{{gene_list_name}}/mn5_mml{{min_match_len}}/prg",
+        prg=f"{prg_dir}/{{dataset_name}}/mn5_mml{{min_match_len}}/{{gene_list_name}}_prg",
     output:
         f"{output_gram_build}/{{dataset_name}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/kmers_stats",
     resources:
