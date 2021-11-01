@@ -9,6 +9,7 @@ vcf:
     pf6_fname_template: "Pf_60_public_Pf3D7_{chrom}_v3.final.vcf.gz"
 
 gene_list_dir: "analysis/input_data/gene_lists"
+pf7_vcf: "analysis/input_data/pf7/Pf3D7_v3_pf7_otto_samples_renamed.vcf.gz"
 pf6_gene_list_files: ["pf6_26_genes"]
 pvivax_gene_list_files: ["pvivax_7_genes"]
 

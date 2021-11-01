@@ -15,6 +15,7 @@ container/legacy_built
 analysis/outputs
 analysis/logs
 analysis/input_data/barry_lab/paolo_pvgv*
+analysis/input_data/pf7/*.vcf.gz*
 
 # python
 __pycache__

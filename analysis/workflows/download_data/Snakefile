@@ -66,12 +66,13 @@ rule all:
             gene_list_name=config["pf6_gene_list_files"]+config["pvivax_gene_list_files"],
         ),
         vcfs=expand(
-                f"{output_vcfs}/pf6/combined_{{gene_list_name}}.vcf.gz",
-                gene_list_name=config["pf6_gene_list_files"]
+                f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}.vcf.gz",
+                gene_list_name=config["pf6_gene_list_files"],
+                dataset=["pf6","pf7"]
         )
 
 
-rule download_data_ena:
+rule dd_ena:
     output:
         expand(
             "{output_base}/{{dataset_name}}/{{sample_name}}/reads_{i}.fastq.gz",
@@ -85,7 +86,7 @@ rule download_data_ena:
         f"python3 {{params.script}} {{params.ena_IDs}} {output_base}/{{wildcards.dataset_name}}/{{wildcards.sample_name}}"
 
 
-rule download_data_subsample_reads:
+rule dd_subsample_reads:
     input:
         ir1=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_1.fastq.gz",
         ir2=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_2.fastq.gz",
@@ -107,7 +108,7 @@ rule download_data_subsample_reads:
         "rasusa -i {input.ir1} -i {input.ir2} --coverage {params.max_coverage} --genome-size {params.genome_size} -o {output.or1} -o {output.or2}"
 
 
-rule download_data_trim_reads:
+rule dd_trim_reads:
     input:
         ir1=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_1.subsampled.fastq.gz",
         ir2=f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_2.subsampled.fastq.gz",
@@ -123,14 +124,14 @@ rule download_data_trim_reads:
         "java -jar /software/Trimmomatic-0.36/trimmomatic-0.36.jar PE -threads {threads} -phred33 {input.ir1} {input.ir2} {output.or1} /dev/null {output.or2} /dev/null ILLUMINACLIP:/software/Trimmomatic-0.36/adapters/TruSeq3-PE-2.fa:2:30:10 LEADING:10 TRAILING:10 SLIDINGWINDOW:4:15 MINLEN:50"
 
 
-rule download_data_pacb_pf_assemblies:
+rule dd_pacb_pf_assemblies:
     output:
         rules.all.input.pacb_pf_assemblies,
     shell:
         f"wget {config['pacb_pf_ftp']} -nc -P {output_pacb_pf_assemblies}"
 
 
-rule download_data_ref_genomes:
+rule dd_ref_genomes:
     wildcard_constraints:
         extension="\.(genome.fasta.gz|gff3.gz)",
     output:
@@ -139,7 +140,7 @@ rule download_data_ref_genomes:
         f"wget {config['ref_genomes']['ftp_root']}/{{wildcards.genome}}{{wildcards.extension}} -P {output_ref_genomes}"
 
 
-rule download_data_index_ref_genomes:
+rule dd_index_ref_genomes:
     input:
         f"{output_ref_genomes}/{{genome}}.fasta.gz",
     output:
@@ -157,7 +158,7 @@ rule download_data_index_ref_genomes:
         """
 
 
-rule download_data_make_gene_bed:
+rule dd_make_gene_bed:
     input:
         gene_list_file=f'{config["gene_list_dir"]}/{{gene_list_name}}.txt',
         genome_gff=(
@@ -173,7 +174,7 @@ rule download_data_make_gene_bed:
         "bash {params.gff_to_bed_script} {input.gene_list_file} {input.genome_gff} {output}"
 
 
-rule download_data_get_vcf:
+rule dd_get_vcf:
     wildcard_constraints:
         chrom="[0-9]+",
     output:
@@ -192,7 +193,7 @@ rule download_data_get_vcf:
         """
 
 
-rule download_data_concat_vcfs:
+rule dd_concat_vcfs:
     input:
         vcfs=expand(
                 f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
@@ -207,12 +208,18 @@ rule download_data_concat_vcfs:
         bcftools index {output.vcf}
         """
 
-rule download_data_subset_vcfs:
+def get_vcf_to_subset(wildcards):
+    if wildcards.dataset == "pf6":
+        return f"{output_vcfs}/{wildcards.dataset}/combined.vcf.gz"
+    elif wildcards.dataset == "pf7":
+        return config["pf7_vcf"]
+
+rule dd_subset_vcfs:
     input:
-        vcf=f"{output_vcfs}/pf6/combined.vcf.gz",
+        vcf=get_vcf_to_subset,
         gene_bed=f"{output_gene_beds}/{{gene_list_name}}.bed",
     output:
-        f"{output_vcfs}/pf6/combined_{{gene_list_name}}.vcf.gz",
+        f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}.vcf.gz",
     shell:
         """
         mkdir -p $(dirname {output})

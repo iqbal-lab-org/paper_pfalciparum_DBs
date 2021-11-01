@@ -12,14 +12,15 @@ def ev_get_tool_vcf(wildcards):
         lambda target: wildcards.tool.startswith(target),
         ["cortex", "octopus", "gram_adju"],
     )
+    malariagen_vcf = wildcards.tool in {"pf6","pf7"}
     if wildcards.tool == "baseline":
         return f'{config["input_data"]}/template.vcf.gz'
     elif wildcards.tool == "myo_7_pf_genes":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif wildcards.tool == "paolo_pvgv":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
-    elif wildcards.tool == "pf6":
-        return f'{config["dl_output_dir"]}/vcfs/pf6/combined_{wildcards.gene_list_name}.vcf.gz'
+    elif malariagen_vcf:
+        return f'{config["dl_output_dir"]}/vcfs/{wildcards.tool}/combined_{wildcards.gene_list_name}.vcf.gz'
     elif any(varcall_tool):
         tool_path = f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/'
         if wildcards.tool.startswith("gram"):
@@ -51,6 +52,7 @@ def ev_get_expected_alignments(wildcards):
             "octopus",
             gram_adju,
             "cortex",
+            "pf7",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__12__13",
         ]
