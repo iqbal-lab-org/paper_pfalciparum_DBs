@@ -23,33 +23,48 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 #dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
 #gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
 dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set"]
-gene_list_names = ["pf6_26_genes", "pf6_26_genes"]
+gene_list_names = ["pf6_26_genes"]
 
+def get_fofn(wcards):
+    result = f"{output_gram_gtype}/{wcards.dataset_name}/final_merged/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}_fofn_{{ext}}.txt"
+    if wcards.ext == "json":
+        return result.format(ext="json")
+    elif wcards.ext == "vcf.gz":
+        return result.format(ext="vcf")
+    else:
+        raise ValueError(f"Unknown extension {wcards.ext}")
 
-def expand_inputs(dataset_name, gene_list_name):
+def expand_inputs(wcards):
     """
     Produces the gramtools output vcfs based on a dataset name, paired with a gene list name.
     """
-    sample_names=get_sample_names(dataset_name)
+    sample_names=get_sample_names(wcards.dataset_name)
     # For testing purposes, only use validation samples
-    sample_names = filter_to_validation(sample_names, dataset_name)
-    return expand(
-        f"{output_gram_gtype}/{dataset_name}/{gene_list_name}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
-        min_match_len=config["min_match_len"],
-        kmer_size=config["kmer_size"],
-        sample_name=sample_names,
-    )
+    sample_names = filter_to_validation(sample_names, wcards.dataset_name)
+    result = f"{output_gram_gtype}/{wcards.dataset_name}/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}/{{sample_name}}/final.{{ext}}"
+    ext = ""
+    if wcards.ext == "json":
+        ext = "json"
+    elif wcards.ext == "vcf":
+        ext = "vcf.gz"
+    else:
+        raise ValueError(f"Unknown extension {wcards.ext}")
+    return expand(result, 
+            sample_name=sample_names,
+            ext = ext)
 
 
 rule all:
     input:
-        starmap(
-            expand_inputs,
-            zip(
-                dataset_names,
-                gene_list_names,
-            ),
-        ),
+        expand(
+                f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{extension}}",
+        dataset_name=dataset_names,
+        gene_list_name=gene_list_names,
+        min_match_len=config["min_match_len"],
+        kmer_size=config["kmer_size"],
+        extension=["vcf.gz","json"]
+        )
+
 
 
 rule jg_gramtools_build:
@@ -73,6 +88,7 @@ rule jg_gramtools_genotype:
         reads=get_reads,
     output:
         vcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+        indexed=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz.csi",
         jvcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.json",
     threads: 10
     resources:
@@ -87,5 +103,32 @@ rule jg_gramtools_genotype:
         mkdir -p "$gram_geno"
         cp genotyped/*.json "${{gram_geno}}/"
         cp genotyped/genotype/*.vcf.gz {output.vcf}
+        bcftools index {output.vcf}
         cp genotyped/genotype/genotyped.json {output.jvcf}
+        """
+
+rule jg_make_fofn:
+    input:
+        vcfs=expand_inputs,
+    output:
+        fofn=f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_fofn_{{ext}}.txt",
+    run:
+        with open(output.fofn,"w") as outfile:
+            for vcf in input.vcfs:
+                outfile.write(vcf+"\n")
+
+rule jg_merge_files:
+    input:
+        get_fofn,
+    output:
+        f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{ext}}"
+    resources:
+        mem_mb=10000,
+    shell:
+        """
+        if [[ "{wildcards.ext}" == "json" ]];then
+            combine_jvcfs {input} {output}
+        else
+            bcftools merge -l {input} -Oz -m both > {output}
+        fi
         """
