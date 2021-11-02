@@ -75,9 +75,10 @@ From: ubuntu:focal
 	cd ${HOME}
 	git clone https://github.com/iqbal-lab-org/gramtools
 	cd gramtools 
-    git checkout c1d2e2741b53c1fc4d1ccb837d544b64c277713b 
+    git checkout ebf7bcd51cdf7e1de6d1af3c36d1f31c3c59ec9e 
     mkdir build 
     cd build
+    conan install .. -s compiler.libcxx=libstdc++11 --build=missing
 	cmake .. -DCMAKE_BUILD_TYPE=REL_WITH_ASSERTS
 	make -j 4 gram encode_prg combine_jvcfs
 	cp ../libgramtools/submods/encode_prg.bin /usr/bin/encode_prg
@@ -109,7 +110,7 @@ From: ubuntu:focal
 	## make_prg (genome graph construction)
 	cd ${HOME}
 	git clone https://github.com/rmcolq/make_prg.git
-	cd make_prg && git checkout c02adc35f3a746dfcf45fd01060d7b28f5a72a24
+	cd make_prg && git checkout 0.2.0
 	pip3 install . && cd .. && rm -r make_prg
 
     ## octopus variant caller, via bioconda
@@ -119,6 +120,35 @@ From: ubuntu:focal
     venv/bin/conda install -y -c conda-forge -c bioconda octopus
     ln -sf $(pwd)/venv/bin/octopus /usr/bin/octopus
     rm -r venv/{pkgs,include}
+
+	#/*************/
+	#/* varifier  */
+	#/*************/
+    # varifier dependencies
+    cd ${HOME}
+    wget https://github.com/mummer4/mummer/releases/download/v4.0.0rc1/mummer-4.0.0rc1.tar.gz
+    tar xf mummer-4.0.0rc1.tar.gz
+    rm mummer-4.0.0rc1.tar.gz && cd mummer-4.0.0rc1 && ./configure 
+    make && make install
+    # enable linking to mummer shared lib
+    echo "/usr/local/lib" >> /etc/ld.so.conf 
+    ldconfig
+    cd .. && rm -r mummer-4.0.0rc1
+
+    apt-get install -y libvcflib-tools libcurl4-gnutls-dev libssl-dev
+
+    git clone https://github.com/atks/vt.git vt-git
+    cd vt-git
+    git checkout 2187ff6347086e38f71bd9f8ca622cd7dcfbb40c
+    make
+    cd .. && cp vt-git/vt /usr/local/bin/ && rm -r vt-git
+
+    cd ${HOME}
+    git clone https://github.com/iqbal-lab-org/varifier
+    cd varifier && git checkout 718a787fd8490ea33a79b5095884e66e12106399
+    pip3 install .
+    cd .. && rm -r varifier
+
 
     ##### Currently tested ends here #######
 
