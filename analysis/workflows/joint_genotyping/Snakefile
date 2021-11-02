@@ -1,4 +1,4 @@
-from itertools import islice, product, starmap
+import re
 
 WORKFLOW = "joint_genotyping"
 
@@ -22,7 +22,7 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 # These two arrays' elements are paired together
 #dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
 #gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
-dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set"]
+dataset_names = ["pf6_analysis_set_fws95", "pacb_ilmn_pf@pf6_analysis_set_fws95"]
 gene_list_names = ["pf6_26_genes"]
 
 def get_fofn(wcards):
@@ -38,9 +38,13 @@ def expand_inputs(wcards):
     """
     Produces the gramtools output vcfs based on a dataset name, paired with a gene list name.
     """
-    sample_names=get_sample_names(wcards.dataset_name)
+    fws_pattern = "pf6.*fws([0-9]{1,2})"
+    fws_threshold = re.match(fws_pattern, wcards.dataset_name)
+    if fws_threshold is not None:
+        fws_threshold = int(fws_threshold.groups()[0])
+    sample_names=get_sample_names(wcards.dataset_name, fws_threshold=fws_threshold)
     # For testing purposes, only use validation samples
-    sample_names = filter_to_validation(sample_names, wcards.dataset_name)
+    # sample_names = filter_to_validation(sample_names, wcards.dataset_name)
     result = f"{output_gram_gtype}/{wcards.dataset_name}/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}/{{sample_name}}/final.{{ext}}"
     ext = ""
     if wcards.ext == "json":

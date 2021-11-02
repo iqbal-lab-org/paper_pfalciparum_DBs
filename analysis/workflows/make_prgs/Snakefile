@@ -28,21 +28,21 @@ output_beds = output_base / "beds"
 ##### 
 ## Change the parameters below to trigger prg construction for different samples and genes
 ## This cannot cheaply be automated, because of rule 'mp_induce_gene_sequences' needs to know the set of genes produced; the alternative is to run this rule sample x gene times, but that's too many jobs.
-
-## P falciparum
-# pf6 analysis 3k subset
-#dataset_name="pf6_analysis_set_3000"
-output_gene_portions = output_base / "gene_portions_pf6"
-# pf6 analysis set
-dataset_name="pf6_analysis_set"
-gene_list_name="pf6_26_genes"
+## See 'common_utils.py' for which dataset names correspond to which types of samples.
 
 ## P vivax
 #dataset_name="pvgv"
 #gene_list_name="pvivax_7_genes"
 
+## P falciparum
+output_gene_portions = output_base / "gene_portions_pf6"
+# pf6; analysis_set=True; fws >= 0.95
+dataset_name="pf6_analysis_set_fws95"
+gene_list_name="pf6_26_genes"
+
+
 ## "ref" must be prepended to sample names so that we place a ref genome slice at the beginning of the msas/prgs.
-sample_names = ["ref"] + get_sample_names(dataset_name)
+sample_names = ["ref"] + get_sample_names(dataset_name, fws_threshold=95)
 genes = load_bed(gene_list_name)
 ##### 
 

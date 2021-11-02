@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from csv import DictReader
 from subprocess import run as sp_run, PIPE
 from glob import glob
 from itertools import product
+import re
 
 
 def get_gmtools_commit(container: str):
@@ -106,17 +107,31 @@ class ENARecord:
 def get_genome_size(dataset_name: str):
     return ENARecord.DATASETS[dataset_name]
 
+def get_samples_below_fws(tsv_fname: str,fws_threshold: int):
+    if fws_threshold <= 0 or fws_threshold >=100:
+        raise ValueError("User-provided Fws threshold must be 0<x<100")
+    used_fws_threshold = fws_threshold / 100
+    fws_fname = Path(tsv_fname).parent / "Pf_6_fws.tsv"
+    result = set()
+    with open(fws_fname) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        for row in reader:
+            if float(row["Fws"]) < used_fws_threshold:
+                result.add(row["Sample"])
+    return result
+
 
 def load_pf6(
-    tsv_fname: str, ignored_pattern: str = "", use_analysis_set: bool = False
+        tsv_fname: str, use_analysis_set: bool = False, fws_threshold: Optional[float] = None
 ) -> List[ENARecord]:
     ignored_samples = set()
     ignored_file = Path(tsv_fname).parent / "ignored_samples.tsv"
     with open(ignored_file) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
         for row in reader:
-            if ignored_pattern == "" or row["Reason"].startswith(ignored_pattern):
-                ignored_samples.add(row["Sample"])
+            ignored_samples.add(row["Sample"])
+    if fws_threshold is not None:
+        ignored_samples.update(get_samples_below_fws(tsv_fname, fws_threshold))
     result = list()
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
@@ -166,14 +181,16 @@ def record_to_sample_names(records: List[ENARecord]):
     return [rec.sample_name for rec in records]
 
 
-def get_sample_names(dataset_name):
-    if dataset_name == "pf6_analysis_set":
-        loaded_samples = load_pf6(config["pf6_tsv"], use_analysis_set=True)
-    elif dataset_name in {"pf6_analysis_set_1500", "pf6_analysis_set_3000"}:
-        loaded_samples = load_pf6(
-            f"analysis/input_data/sample_lists/pf6/{dataset_name}.tsv",
-            use_analysis_set=True,
-        )
+def get_sample_names(dataset_name, fws_threshold = None):
+    if dataset_name.startswith("pf6"):
+        if fws_threshold is not None:
+            supported_pattern = f"pf6.*fws{fws_threshold}"
+            assert re.match(supported_pattern,dataset_name) is not None, f"Fws filtering only supported for dataset name matching pattern {supported_pattern}"
+        use_analysis_set = "analysis_set" in dataset_name
+        sample_tsv = config["pf6_tsv"]
+        if dataset_name in {"pf6_analysis_set_1500", "pf6_analysis_set_3000"}:
+            sample_tsv = f"analysis/input_data/sample_lists/pf6/{dataset_name}.tsv"
+        loaded_samples = load_pf6(sample_tsv, use_analysis_set=use_analysis_set, fws_threshold = fws_threshold)
     elif dataset_name.startswith("pacb_ilmn_pf"):
         loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     elif dataset_name == "pvgv":
