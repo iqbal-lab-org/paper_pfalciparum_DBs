@@ -29,9 +29,6 @@ class Stats:
         "reads_properly_paired",
         "bases_mapped_cigar",
         "base_error_rate",
-        "num_alt_calls",
-        "frac_ref_bases_in_alt_calls",
-        "induced_ref_scaled_eddist",
     ]
 
     def __init__(self, sample_name: str, tool_name: str, gene_name: str):
@@ -115,38 +112,6 @@ if __name__ == "__main__":
                 record["base_error_rate"] = float(stat_line.split()[3])
             else:
                 continue
-
-        # Traverse vcf records in bed region
-        try:
-            vcf_records = vcf_file.fetch(bed_line[0], reg_start, reg_end)
-        # catches empty vcf; but also unindexed vcf;
-        # thus index existence must be checked before this
-        except ValueError:
-            vcf_records = []
-        num_alt_calls, ref_bases_in_alt_calls = 0, 0
-        edit_distance_induced_ref = 0
-        for vcf_record in vcf_records:
-            sample = vcf_record.samples[0]
-            sample_gt = sample["GT"]
-            if any(map(lambda el: el != 0 and el is not None, sample_gt)):
-                num_alt_calls += 1
-                ref_allele = vcf_record.alleles[0]
-                ref_bases_in_alt_calls += len(ref_allele)
-                try:
-                    alt_allele = [alt for alt in sample.alleles if alt != ref_allele][0]
-                except IndexError:
-                    # In gramtools, alt-called allele can be same as ref-allele due to prg ambiguity.
-                    if "AMBIG" in sample["FT"]:
-                        alt_allele = ref_allele
-                    else:
-                        raise
-                edit_distance_induced_ref += edalign(ref_allele, alt_allele)[
-                    "editDistance"
-                ]
-        record["num_alt_calls"] = num_alt_calls
-        region_length = reg_end - reg_start + 1
-        record["frac_ref_bases_in_alt_calls"] = ref_bases_in_alt_calls / region_length
-        record["induced_ref_scaled_eddist"] = edit_distance_induced_ref / region_length
 
         print(record, file=output_file)
     output_file.close()
