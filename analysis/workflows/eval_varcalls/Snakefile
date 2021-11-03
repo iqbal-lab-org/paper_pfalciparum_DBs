@@ -169,7 +169,7 @@ rule ev_induced_ref_map_reads:
         subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
         induced_ref=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.fa.gz",
     params:
-        vcf_overlap_remover=f'{config["scripts"]}/remove_vcf_overlaps.py', 
+        vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py', 
     threads: 4
     shadow:
         "shallow"

@@ -1,5 +1,6 @@
 # Base directories
 scripts: "analysis/scripts"
+common_scripts: "analysis/scripts/common_utils"
 output_dir: "analysis/outputs"
 input_data: "analysis/input_data"
 
