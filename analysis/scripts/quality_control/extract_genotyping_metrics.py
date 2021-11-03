@@ -12,7 +12,20 @@ from common_utils.genome_region import RegionMode, GenomeRegion, genome_regions_
 class VCFError(Exception):
     pass
 
+def print_header(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    print(QCMeasure.get_header(), file=sys.stdout)
+    ctx.exit()
+
 @click.command()
+@click.option(
+    "--header_only",
+    is_flag=True,
+    help="Print the tsv header only",
+    is_eager=True,
+    callback=print_header,
+)
 @click.argument("vcf_fname", type=click.Path(exists=True))
 @click.argument("bed_fname", type=click.Path(exists=True))
 @click.option("--sample_name", "-s", required=True)
@@ -24,7 +37,6 @@ class VCFError(Exception):
 )
 @click.option(
     "--preset",
-    type=click.Choice(["gramtools"]),
     help="Will extract known FORMAT fields for the supported genotyper."
 )
 @click.option(
@@ -33,6 +45,7 @@ class VCFError(Exception):
     help="The format fields to extract, in the form FIELD1:FIELD2:[...]"
 )
 def main(
+    header_only,
     vcf_fname,
     bed_fname,
     sample_name,
@@ -69,10 +82,14 @@ def main(
         print(str(res),file=out_fname)
 
 def get_preset(preset: str) -> str:
-    supported_presets = {"gramtools": "DP:COV:GT_CONF_PERCENTILE"}
-    if preset not in supported_presets:
+    supported_presets = {"gram": "DP:COV:GT_CONF_PERCENTILE"}
+    used_preset = None
+    for s_p in supported_presets:
+        if preset.startswith(s_p):
+            used_preset = s_p
+    if used_preset is None:
         raise ValueError(f"{preset} preset is not supported")
-    return supported_presets[preset]
+    return supported_presets[used_preset]
 
 def check_headers(vcf_fname: str, format_fields: Set[str], sample_name: str) -> None:
     open_vcf = VariantFile(vcf_fname)

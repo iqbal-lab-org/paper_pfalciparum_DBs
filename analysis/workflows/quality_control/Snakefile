@@ -1,0 +1,126 @@
+"""
+"""
+
+WORKFLOW = "quality_control"
+
+
+configfile: "analysis/configs/common.yaml"
+
+
+include: f"../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
+
+
+GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_read_stats = output_base / "mapped_reads"
+output_vcf_stats = output_base / "vcf_stats"
+
+cu_mk_output_dirs(dir())
+
+
+rule all:
+    input:
+        read_coverage=expand(
+            f"{output_read_stats}/{{dataset_name}}/read_stats.tsv",
+            dataset_name=["pf6_analysis_set_fws95"],
+        ),
+        vcf_stats=expand(
+            f"{output_vcf_stats}/{{dataset_name}}/{{gene_list}}/vcf_stats.tsv",
+            dataset_name=["pf6_analysis_set_fws95"],
+            gene_list=["pf6_26_genes"],
+        ),
+
+
+rule qc_extract_read_mapping_stats:
+    input:
+        bed_fname=f'{config["input_data"]}/pf3d7_2018_11_regions_in_core.bed',
+        bam_fname=qc_get_mapped_reads,
+    output:
+        f"{output_read_stats}/per_sample/{{dataset_name}}/{{sample_name}}_read_stats.tsv",
+    params:
+        read_depth_script=f'{config["scripts"]}/{WORKFLOW}/compute_read_depth.py',
+    shell:
+        """
+        python3 {params.read_depth_script} -s {wildcards.sample_name} -b {input.bed_fname} --out_fname {output} --collapse_bed {input.bam_fname}
+        """
+
+
+rule qc_collect_all_read_stats:
+    input:
+        qc_get_expected_read_stats,
+    output:
+        temp(f"{output_read_stats}/{{dataset_name}}/read_stats_noheader.tsv"),
+    run:
+        with open(output[0], "w") as fout:
+            for fname in input:
+                with open(fname) as fin:
+                    stats = fin.read()
+                fout.write(stats)
+
+
+rule qc_collect_all_read_stats_with_header:
+    input:
+        rules.qc_collect_all_read_stats.output,
+    output:
+        f"{output_read_stats}/{{dataset_name}}/read_stats.tsv",
+    shadow:
+        "shallow"
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/compute_read_depth.py',
+    shell:
+        """
+        python3 {params.script} --header_only > header.tsv
+        cat header.tsv {input} > {output}
+        """
+
+
+rule qc_extract_vcf_stats:
+    input:
+        bed_fname=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+        vcf_fname=qc_get_tool_vcf,
+    output:
+        f"{output_vcf_stats}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}_vcf_stats.tsv",
+    params:
+        vcf_extraction_script=(
+            f'{config["scripts"]}/{WORKFLOW}/extract_genotyping_metrics.py'
+        ),
+    shadow:
+        "shallow"
+    shell:
+        """
+        cp {input.vcf_fname} vcf.in.gz
+        bcftools index vcf.in.gz
+        python3 {params.vcf_extraction_script} vcf.in.gz {input.bed_fname} -s {wildcards.sample_name} --preset {wildcards.tool} --out_fname {output}
+        """
+
+
+rule qc_collect_all_vcf_stats:
+    input:
+        qc_get_expected_vcf_stats,
+    output:
+        temp(
+            f"{output_vcf_stats}/{{dataset_name}}/{{gene_list}}/vcf_stats_noheader.tsv"
+        ),
+    run:
+        with open(output[0], "w") as fout:
+            for fname in input:
+                with open(fname) as fin:
+                    stats = fin.read()
+                fout.write(stats)
+
+
+rule qc_collect_all_vcf_stats_with_header:
+    input:
+        rules.qc_collect_all_vcf_stats.output,
+    output:
+        f"{output_vcf_stats}/{{dataset_name}}/{{gene_list}}/vcf_stats.tsv",
+    shadow:
+        "shallow"
+    params:
+        script=f'{config["scripts"]}/{WORKFLOW}/extract_genotyping_metrics.py',
+    shell:
+        """
+        python3 {params.script} --header_only > header.tsv
+        cat header.tsv {input} > {output}
+        """
