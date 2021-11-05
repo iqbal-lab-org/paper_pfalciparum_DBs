@@ -20,7 +20,7 @@ output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gene_portions = output_base / "gene_portions"
 mk_output_dirs(dir())
 
-genotypers=["gram_joint_geno"]
+genotypers=[f"gram_jointgeno_{GMTOOLS_COMMIT}"]
 sample_set_names=["pf6_analysis_set_fws95"]
 
 gene_list_name="pf6_26_genes"
@@ -29,14 +29,21 @@ genes = pp_filter_to_paralogs(load_bed(gene_list_name))
 def pp_get_sample_seqs(wildcards):
     fws_threshold = None
     match = re.match("pf6.*fws([0-9]{1,2})", wildcards.sample_set_name)
-    if match:
+    if match is not None:
         fws_threshold = int(match.groups()[0])
-    sample_names = ["ref"] + get_sample_names(wildcards.sample_set_name, fws_threshold=95)[:2]
+    sample_names = ["ref"] + get_sample_names(wildcards.sample_set_name, fws_threshold=fws_threshold)[:2]
     return expand(
         f"{output_gene_portions}/{wildcards.genotyper}/{wildcards.sample_set_name}/{{sample_name}}/{wildcards.paralog}.fa",
         sample_name=sample_names,
         allow_missing=True,
     )
+
+def pp_get_paralog_family(wildcards):
+    if wildcards.paralog_abbrev not in config["paralog_abbrevs"]:
+        raise ValueError(f"{wildcards.paralog_abbrev} not supported")
+    paralog_names = config["paralog_names"][wildcards.paralog_abbrev]
+    result=expand(f"{output_gene_portions}/{wildcards.genotyper}/{wildcards.sample_set_name}/{{paralog}}_deduplicated.fa", paralog=paralog_names)
+    return result
 
 rule all:
     input:
@@ -54,11 +61,11 @@ rule pp_induce_gene_seqs:
         vcf=pp_get_one_vcf,
         ref_genome=get_ref_genome_no_wildcards(gene_list_name),
     output:
-        temp(expand(
+        expand(
             f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{sample_name}}/{{paralog}}.fa",
             paralog=genes,
             allow_missing=True,
-        )),
+        ),
     params:
         induce_seq_script=f'{config["common_scripts"]}/induce_gene_seqs.sh',
     shadow:
@@ -66,7 +73,7 @@ rule pp_induce_gene_seqs:
     shell:
         """
         outdir=$(dirname {output[0]})
-        bash {params.induce_seq_script} {input.bed_genes} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name}
+        bash {params.induce_seq_script} {input.bed} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name}
         """
 
 rule pp_cat_gene_seqs:
@@ -74,6 +81,8 @@ rule pp_cat_gene_seqs:
         sample_sequences=pp_get_sample_seqs,
     output:
         f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}.fa",
+    wildcard_constraints:
+        paralog="[^_]+",
     run:
         # Use run, not shell, as too long list of arguments to shell script failed in snakemake v5.14.0.
         with open(output.dna_seqs, "w") as fout:
@@ -84,35 +93,44 @@ rule pp_cat_gene_seqs:
 
 rule pp_deduplicate_dna_seqs:
     input:
-        dna_seqs=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}.fa",
+        f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}.fa",
     output:
-        dna_seqs=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}_deduplicated.fa",
+        dedup_dna_seqs=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}_deduplicated.fa",
+        dedup_dna_tsv=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/{{paralog}}_deduplicated.tsv",
     params:
         deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
     shell:
         """
+        python3 {params.deduplication_script} {input} {output.dedup_dna_seqs}
         """
 
 rule pp_cat_paralogs:
     input:
+        pp_get_paralog_family,
     output:
         dna_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_deduplicated.fa",
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        cat {input} > {output}
+        """
 
 rule pp_translate_to_protein:
     input:
         dna_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_deduplicated.fa",
     output:
-        protein_seqs=expand(
-        f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}{{ext}}",
-        ext=[".fa","_deduplicated.fa","_stop_proteins.fa"],
-        allow_missing=True
-        ),
-        deduplication_tsv=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_dedup.tsv",
+        translated_protein=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
+        translated_premature_stops=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_premature_stops.fa",
+        translated_dedup=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.fa",
+        translated_dedup_tsv=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.tsv",
     params:
         translation_script=f'{config["scripts"]}/{WORKFLOW}/translate_dna.py',
         deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
     shell:
         """
+        mkdir -p $(dirname {output.translated_protein}
+        python3 {params.translation_script} {input.dna_seqs} {output.translated_protein} --fstops {output.translated_premature_stops}
+        python3 {params.deduplication_script} {output.translated_protein} {output.translated_dedup}
         """
 
 rule pp_make_msa:
@@ -120,17 +138,26 @@ rule pp_make_msa:
         protein_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
     output:
         msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.msa",
+    resources:
+        mem_mb=5000,
+    shell:
+        """
+        mafft {input.protein_seqs} > {output.msa}
+        """
+
 
 rule pp_trim_msa:
     input:
         msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.msa",
     output:
-        msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{start}}_{{stop}}/{{paralog_abbrev}}.fa",
-        fa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{start}}_{{stop}}/{{paralog_abbrev}}_noinsert.fa",
+        fa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{start}}_{{stop}}__{{paralog_abbrev}}_noinsert.fa",
+    shell:
+        """
+        """
 
 rule pp_cdhit:
     input:
-        f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_region}}/{{paralog_abbrev}}_noinsert.fa",
+        f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_region}}__{{paralog_abbrev}}_noinsert.fa",
     output:
         expand(f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/cdhit/{{paralog_region}}/{{paralog_abbrev}}.{{ext}}",ext=["fa","fa.clstr"],allow_missing=True)
 

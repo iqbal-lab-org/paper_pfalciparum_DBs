@@ -13,5 +13,10 @@ def pp_filter_to_paralogs(genes: List[str]) -> List[str]:
     genes_of_interest = set(chain.from_iterable(map(lambda gene: config["paralog_names"][gene], config["paralog_abbrevs"])))
     return list(filter(lambda gene: gene in genes_of_interest, genes))
 
+
 def pp_get_one_vcf(wildcards):
-    pass
+    if wildcards.sample_name == "ref":
+        return f'{config["input_data"]}/template.vcf.gz'
+    if wildcards.genotyper.startswith("gram_jointgeno"):
+        return f'{config["jointgeno_dir"]}/{wildcards.genotyper}/{wildcards.sample_set_name}/pf6_26_genes_7_13/{wildcards.sample_name}/final.vcf.gz'
+    raise ValueError(f"Unsupported set of wildcards: {wildcards}")

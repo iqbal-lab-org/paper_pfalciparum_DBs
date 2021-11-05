@@ -24,5 +24,5 @@ do
     gene_name=${elems[3]}
     fout=${outdir_fname}/${gene_name}.fa
     samtools faidx "$ref_genome_fname" $reg | bcftools consensus input.vcf.gz |
-        sed 's/>.*/>'"$sample_name"'/' > $fout
+        sed 's/>.*/>'"${gene_name}_${sample_name}"'/' > $fout
 done
