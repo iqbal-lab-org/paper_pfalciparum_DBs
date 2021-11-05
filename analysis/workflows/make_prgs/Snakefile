@@ -98,24 +98,14 @@ rule mp_induce_gene_sequences:
             gene=genes,
             allow_missing=True,
         ),
+    params:
+        induce_seq_script=f'{config["common_scripts"]}/induce_gene_seqs.sh',
     shadow:
         "shallow"
     shell:
         """
         outdir=$(dirname {output[0]})
-        mkdir -p "$outdir"
-        cp {input.vcf} input.vcf.gz
-        bcftools index input.vcf.gz
-        IFS="\n"; for gene_line in $(cat {input.bed_genes})
-        do
-            IFS="\t"; elems=($gene_line)    
-            adj_start=$((${{elems[1]}} + 1))
-            reg="${{elems[0]}}:${{adj_start}}-${{elems[2]}}"
-            gene_name=${{elems[3]}}
-            fout=${{outdir}}/${{gene_name}}.fa
-            samtools faidx {input.ref_genome} $reg | bcftools consensus input.vcf.gz |
-                sed 's/>.*/>'{wildcards.sample_name}'/' > $fout
-        done
+        bash {params.induce_seq_script} {input.bed_genes} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name}
         """
 
 

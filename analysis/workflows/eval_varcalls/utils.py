@@ -54,7 +54,7 @@ def ev_get_expected_alignments(wildcards):
             "cortex",
             "pf7",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__12__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
