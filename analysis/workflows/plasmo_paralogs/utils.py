@@ -4,9 +4,9 @@ from itertools import chain
 def pp_get_all_paralog_regions(str_list_to_format):
     result = list()
     for str_to_format in str_list_to_format:
-        for paralog in config["paralog_abbrevs"]:
-            for paralog_region in config["focal_regions"][paralog]:
-                result.append(str_to_format.format(paralog=paralog,paralog_region=paralog_region))
+        for paralog_abbrev in config["paralog_abbrevs"]:
+            for paralog_region in config["focal_regions"][paralog_abbrev ]:
+                result.append(str_to_format.format(paralog_abbrev =paralog_abbrev ,paralog_region=paralog_region))
     return result
 
 def pp_filter_to_paralogs(genes: List[str]) -> List[str]:

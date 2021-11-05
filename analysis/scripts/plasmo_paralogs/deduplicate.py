@@ -27,7 +27,7 @@ with open(fout,"w") as fhandle_out:
     for rec_list in dedup_records.values():
         SeqIO.write(rec_list[0], fhandle_out, "fasta")
 
-fout_tsv = f"{Path(fout).stem}.tsv"
+fout_tsv = Path(fout).with_suffix(".tsv")
 
 with open(fout_tsv,"w") as fhandle_out:
     fhandle_out.write("Representative\tIdenticals\n")
