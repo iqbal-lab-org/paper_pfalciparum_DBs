@@ -42,7 +42,7 @@ def pp_get_paralog_family(wildcards):
     if wildcards.paralog_abbrev not in config["paralog_abbrevs"]:
         raise ValueError(f"{wildcards.paralog_abbrev} not supported")
     paralog_names = config["paralog_names"][wildcards.paralog_abbrev]
-    result=expand(f"{output_gene_portions}/{wildcards.genotyper}/{wildcards.sample_set_name}/catted_genes/{{paralog}}_deduplicated.fa", paralog=paralog_names)
+    result=expand(f"{output_base}/{wildcards.genotyper}/{wildcards.sample_set_name}/{wildcards.paralog_abbrev}/dna/{{paralog}}_deduplicated.fa", paralog=paralog_names)
     return result
 
 rule all:
@@ -81,7 +81,7 @@ rule pp_cat_gene_seqs:
     input:
         sample_sequences=pp_get_sample_seqs,
     output:
-        catted_gene=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/catted_genes/{{paralog}}.fa",
+        catted_gene=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog}}.fa",
     wildcard_constraints:
         paralog="[^_]+",
     run:
@@ -98,8 +98,8 @@ rule pp_deduplicate_dna_seqs:
     input:
         rules.pp_cat_gene_seqs.output,
     output:
-        dedup_dna_seqs=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/catted_genes/{{paralog}}_deduplicated.fa",
-        dedup_dna_tsv=f"{output_gene_portions}/{{genotyper}}/{{sample_set_name}}/catted_genes/{{paralog}}_deduplicated.tsv",
+        dedup_dna_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog}}_deduplicated.fa",
+        dedup_dna_tsv=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog}}_deduplicated.tsv",
     params:
         deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
     shell:
@@ -107,15 +107,19 @@ rule pp_deduplicate_dna_seqs:
         python3 {params.deduplication_script} {input} {output.dedup_dna_seqs}
         """
 
-rule pp_cat_paralogs:
+rule pp_cat_and_msa_paralogs:
     input:
         pp_get_paralog_family,
     output:
         dna_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_deduplicated.fa",
+        dna_msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_deduplicated.msa",
+    resources:
+        mem_mb=5000,
     shell:
         """
         mkdir -p $(dirname {output})
-        cat {input} > {output}
+        cat {input} > {output.dna_seqs}
+        mafft {output.dna_seqs} > {output.dna_msa}
         """
 
 rule pp_translate_to_protein:
@@ -138,9 +142,9 @@ rule pp_translate_to_protein:
 
 rule pp_make_msa:
     input:
-        protein_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
+        protein_seqs=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.fa",
     output:
-        msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.msa",
+        msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.msa",
     resources:
         mem_mb=5000,
     shell:
@@ -151,7 +155,7 @@ rule pp_make_msa:
 
 rule pp_trim_msa:
     input:
-        msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.msa",
+        msa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.msa",
     output:
         fa=f"{output_base}/{{genotyper}}/{{sample_set_name}}/{{paralog_abbrev}}/protein/trimmed/{{start}}_{{stop}}__{{paralog_abbrev}}_noinsert.fa",
     shell:
