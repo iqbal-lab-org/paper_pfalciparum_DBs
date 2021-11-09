@@ -150,6 +150,18 @@ From: ubuntu:focal
     cd .. && rm -r varifier
 
 
+    ## seqkit (fasta manipulation)
+    cd ${HOME}
+    wget https://github.com/shenwei356/seqkit/releases/download/v2.0.0/seqkit_linux_amd64.tar.gz
+    tar xf seqkit_linux_amd64.tar.gz && mv seqkit /usr/bin/ && rm seqkit_linux_amd64.tar.gz
+
+    ## cdhit (sequence clustering into representatives)
+    cd ${HOME}
+    wget -O cd-hit.tar.gz https://github.com/weizhongli/cdhit/releases/download/V4.8.1/cd-hit-v4.8.1-2019-0228.tar.gz
+    tar xf cd-hit.tar.gz && cd-hit-v4.8.1-2019-0228 && make && cp {cd-hit,cd-hit-est} /usr/bin/ && cd ..
+    rm -rf cd-hit*
+
+
     ##### Currently tested ends here #######
 
 
