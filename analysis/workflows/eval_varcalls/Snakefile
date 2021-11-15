@@ -52,16 +52,11 @@ rule all:
             dataset_name=["pf6"],
             gene_list=config["pf6_gene_lists"],
         ),
-        induced_ref_mapping_stats_pvgv=expand(
-            f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
-            dataset_name=["pvgv"],
-            gene_list=config["pvgv_gene_lists"],
-        ),
 
 
 rule ev_index_pacb_assemblies:
     input:
-        assembly=get_assembly,
+        assembly=cu_get_assembly,
     output:
         expand(
             f"{output_bowtie2_indexes}/{{sample_name}}.{{ext}}",
@@ -138,7 +133,7 @@ rule ev_varifier_validation:
     input:
         ref_genome=f'{config["ref_genome_dir"]}/Pfalciparum.genome.fasta.gz',
         vcf=ev_get_tool_vcf,
-        assembly=get_assembly,
+        assembly=cu_get_assembly,
     output:
         f"{output_base}/{{dataset_name}}/varifier/{{tool}}_{{sample_name}}.json",
     container:
@@ -159,9 +154,9 @@ rule ev_varifier_validation:
 rule ev_induced_ref_map_reads:
     input:
         bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
-        ref_genome=get_ref_genome,
+        ref_genome=cu_get_ref_genome,
         vcf=ev_get_tool_vcf,
-        reads=get_reads,
+        reads=cu_get_reads,
     output:
         bam=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam",
         bai=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam.bai",
@@ -208,7 +203,7 @@ rule ev_induced_ref_map_reads:
 rule ev_induced_ref_get_stats:
     input:
         bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
-        ref_genome=get_ref_genome,
+        ref_genome=cu_get_ref_genome,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
         bam=rules.ev_induced_ref_map_reads.output.bam,
     output:

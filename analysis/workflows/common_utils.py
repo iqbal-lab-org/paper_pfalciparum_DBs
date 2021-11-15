@@ -7,7 +7,7 @@ from itertools import product
 import re
 
 
-def get_gmtools_commit(container: str):
+def cu_get_gmtools_commit(container: str):
     """Get gramtools commit version through venv/singularity container it is installed in"""
     gmtools_commit_script = Path(config["scripts"]) / "gmtools_commit.py"
     gmtools_commit_script = str(gmtools_commit_script.resolve())
@@ -35,13 +35,13 @@ def get_gmtools_commit(container: str):
     return GMTOOLS_COMMIT
 
 
-def mk_output_dirs(variables):
+def cu_mk_output_dirs(variables):
     """For each variable starting with 'output', makes the directory name it holds"""
     for variable in filter(lambda name: name.startswith("output"), variables):
         Path(eval(variable)).mkdir(exist_ok=True, parents=True)
 
 
-def gene_list_to_genome(wildcards):
+def cu_gene_list_to_genome(wildcards):
     if "pf6" in wildcards.gene_list_name:
         return "Pfalciparum"
     elif "pvivax" in wildcards.gene_list_name:
@@ -50,7 +50,7 @@ def gene_list_to_genome(wildcards):
         raise ValueError(f"wildcards.{gene_list_name} not in {{pf6, pvgv}}")
 
 
-def get_assembly(wildcards):
+def cu_get_assembly(wildcards):
     assembly = glob(f'{config["assemblies_dir"]}/{wildcards.sample_name}*.fasta.gz')
     if len(assembly) != 1:
         raise ValueError(
@@ -59,7 +59,7 @@ def get_assembly(wildcards):
     return assembly
 
 
-def get_reads(wildcards):
+def cu_get_reads(wildcards):
     templated_reads = [
         f'{config["dl_output_dir"]}/{{dataset_name}}/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
         for i in [1, 2]
@@ -73,7 +73,7 @@ def get_reads(wildcards):
     raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
 
 
-def get_ref_genome_no_wildcards(dataset_name):
+def cu_get_ref_genome_no_wildcards(dataset_name):
     ds_to_ref = {
         "pf6": "Pfalciparum",
         "pf6_analysis_set": "Pfalciparum",
@@ -86,7 +86,7 @@ def get_ref_genome_no_wildcards(dataset_name):
     raise ValueError(f"Support for {dataset_name} not implemented")
 
 
-def get_ref_genome(wildcards):
+def cu_get_ref_genome(wildcards):
     return get_ref_genome_no_wildcards(wildcards.dataset_name)
 
 
@@ -104,10 +104,10 @@ class ENARecord:
         self.ena_IDs = ena_IDs
 
 
-def get_genome_size(dataset_name: str):
+def cu_get_genome_size(dataset_name: str):
     return ENARecord.DATASETS[dataset_name]
 
-def get_samples_below_fws(tsv_fname: str,fws_threshold: int):
+def _get_samples_below_fws(tsv_fname: str,fws_threshold: int):
     if fws_threshold <= 0 or fws_threshold >=100:
         raise ValueError("User-provided Fws threshold must be 0<x<100")
     used_fws_threshold = fws_threshold / 100
@@ -121,7 +121,7 @@ def get_samples_below_fws(tsv_fname: str,fws_threshold: int):
     return result
 
 
-def load_pf6(
+def cu_load_pf6(
         tsv_fname: str, use_analysis_set: bool = False, fws_threshold: Optional[float] = None
 ) -> List[ENARecord]:
     ignored_samples = set()
@@ -131,7 +131,7 @@ def load_pf6(
         for row in reader:
             ignored_samples.add(row["Sample"])
     if fws_threshold is not None:
-        ignored_samples.update(get_samples_below_fws(tsv_fname, fws_threshold))
+        ignored_samples.update(_get_samples_below_fws(tsv_fname, fws_threshold))
     result = list()
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
@@ -147,7 +147,7 @@ def load_pf6(
     return result
 
 
-def load_pvgv(tsv_fname: str) -> List[ENARecord]:
+def cu_load_pvgv(tsv_fname: str) -> List[ENARecord]:
     result = list()
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
@@ -161,7 +161,7 @@ def load_pvgv(tsv_fname: str) -> List[ENARecord]:
     return result
 
 
-def load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
+def cu_load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
     result = list()
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
@@ -177,11 +177,18 @@ def load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
     return result
 
 
-def record_to_sample_names(records: List[ENARecord]):
+def cu_record_to_sample_names(records: List[ENARecord]):
     return [rec.sample_name for rec in records]
 
+def cu_get_sample_names_fws_matching(dataset_name):
+    fws_pattern = "pf6.*fws([0-9]{1,2})"
+    fws_threshold = re.match(fws_pattern, dataset_name)
+    if fws_threshold is not None:
+        fws_threshold = int(fws_threshold.groups()[0])
+    sample_names=cu_get_sample_names(dataset_name, fws_threshold=fws_threshold)
+    return sample_names
 
-def get_sample_names(dataset_name, fws_threshold = None):
+def cu_get_sample_names(dataset_name, fws_threshold = None):
     if dataset_name.startswith("pf6"):
         if fws_threshold is not None:
             supported_pattern = f"pf6.*fws{fws_threshold}"
@@ -190,21 +197,21 @@ def get_sample_names(dataset_name, fws_threshold = None):
         sample_tsv = config["pf6_tsv"]
         if dataset_name in {"pf6_analysis_set_1500", "pf6_analysis_set_3000"}:
             sample_tsv = f"analysis/input_data/sample_lists/pf6/{dataset_name}.tsv"
-        loaded_samples = load_pf6(sample_tsv, use_analysis_set=use_analysis_set, fws_threshold = fws_threshold)
+        loaded_samples = cu_load_pf6(sample_tsv, use_analysis_set=use_analysis_set, fws_threshold = fws_threshold)
     elif dataset_name.startswith("pacb_ilmn_pf"):
-        loaded_samples = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+        loaded_samples = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     elif dataset_name == "pvgv":
-        loaded_samples = load_pvgv(config["pvgv_tsv"])
+        loaded_samples = cu_load_pvgv(config["pvgv_tsv"])
     else:
         loaded_samples = None
 
     if loaded_samples is None:
         raise ValueError(f"Support for {dataset_name} not implemented")
     else:
-        return record_to_sample_names(loaded_samples)
+        return cu_record_to_sample_names(loaded_samples)
 
 
-def load_bed(gene_list_name):
+def cu_load_bed(gene_list_name):
     bed_fname = f'{config["gene_bed_dir"]}/{gene_list_name}.bed'
     result = list()
     with open(bed_fname) as fin:

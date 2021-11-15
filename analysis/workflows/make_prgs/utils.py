@@ -1,4 +1,4 @@
-def get_one_vcf(wildcards):
+def mp_get_one_vcf(wildcards):
     if wildcards.sample_name == "ref":
         return f'{config["input_data"]}/template.vcf.gz'
     if dataset_name.startswith("pf6"):

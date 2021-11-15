@@ -1,3 +1,113 @@
+# Rationale
+
+This project genotypes malariaGEN samples using gramtools.
+
+# Workflows
+
+## Constraints
+
+In each workflow I load a global configfile ("common.yaml") and a set of common python utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py", and "common_utils.py" must be loaded before other "utils.py".
+
+## Conventions
+
+Inside workflows, functions prefixed with `cu_` come from `analysis/workflows/common_utils.py`
+
+Similarly, each workflow's own `analysis/workflows/<workflow_name>/utils.py` defines functions prefixed with a two-letter code: e.g. for `download_data`, functions will start with `dd_`.
+
+
+## Running a workflow
+
+To run a workflow on the cluster, call
+```
+sh analysis/cluster_submit.sh
+```
+
+## List and description of workflows
+
+### download_data
+
+#### Requirements
+
+None
+
+#### Function
+3 main datasets:
+
+  * pf6: downloads all p. falciparum read sets from malariaGEN
+  * pvgv: downloads all p. vivax read sets from malariaGEN
+  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples
+
+
+### call_variants
+
+#### Requirements
+
+download_data
+
+#### Function
+
+2 main operations:
+
+   * Runs cortex on all pf6 and pvgv samples
+   * Runs samtools, cortex and gramtools (adjudicating samtools and cortex calls) on pacb_ilmn_pf samples. This allows `eval_varcalls` workflow to evaluate the calls for all three tools.
+
+### eval_varcalls
+
+#### Requirements
+
+call_variants
+
+#### Function
+
+
+### make_prgs
+
+#### Requirements 
+
+call_variants
+
+#### Function
+
+* Makes a prg based on cortex calls in pf6 samples. Configurable parameters are:
+       - Which pf6 samples to use for graph construction
+       - Which genes to build the prg on
+       - What `min_match_len` to use for `make_prg`
+* Makes a prg based on cortex calls in pvgv samples.
+
+### joint_genotyping
+
+#### Requirements
+
+make_prg
+
+#### Function
+
+Takes as input a genome graph made by make_prg, and runs gramtools genotyping on all specified samples.
+
+### plasmo_paralogs
+
+#### Requirements
+
+joint_genotyping
+
+#### Function
+
+Produces sequences of the paralogs to study, makes MSAs, translates to protein, makes clusters using cd-hit.
+
+
+## Development
+
+### Testing without built container
+To avoid rebuilding a container everytime a different version of the gramtools codebase is tested, it is installed locally:
+
+```
+. venv/bin/activate
+pip install -e <path/to/gramtools>
+```
+
+This means the file pyrequirements.txt should not be produced by running `pip freeze > pyrequirements.txt`.
+
+
 # Input data
 
 We use Plasmodium data from the MalariaGEN projects: https://www.malariagen.net/ 
@@ -21,59 +131,6 @@ Some samples are duplicates with low coverage, estimated to be non-clonal (via F
 'Exclusion reason' column. 
 
 We build graphs from and genotype only 'Analysis_set' samples.
-
-# Workflows
-
-## Running a workflow
-
-To run a workflow, ... [TODO]
-
-## List and description of workflows
-
-### download_data
-3 main datasets:
-
-  * pf6: downloads all p. falciparum read sets from malariaGEN
-  * pvgv: downloads all p. vivax read sets from malariaGEN
-  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples
-
-### call_variants
-
-2 main operations:
-
-   * Runs cortex on all pf6 and pvgv samples
-   * Runs samtools, cortex and gramtools (adjudicating samtools and cortex calls) on pacb_ilmn_pf samples. This allows `eval_varcalls` workflow to evaluate the calls for all three tools.
-
-### eval_varcalls
-
-### make_prgs
-
-2 main operations:
-    * Make a prg based on cortex calls in pf6 samples. Configurable parameters are:
-       - Which pf6 samples to use for graph construction
-       - Which genes to build the prg on
-       - What `min_match_len` to use for `make_prg`
-    * Make a prg based on cortex calls in pvgv samples.
-
-### joint_genotyping
-
-
-
-## Development
-
-### Testing without built container
-To avoid rebuilding a container everytime a different version of the gramtools codebase is tested, it is installed locally:
-
-```
-. venv/bin/activate
-pip install -e <path/to/gramtools>
-```
-
-This means the file pyrequirements.txt should not be produced by running `pip freeze > pyrequirements.txt`.
-
-### Workflow idiosyncracies
-
-* In each workflow I load a global configfile ("common.yaml") and a set of common python utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py", and "common_utils.py" must be loaded before other "utils.py".
 
 
 # Genes

@@ -2,10 +2,9 @@ from typing import List
 from csv import DictReader
 from pathlib import Path
 
-GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
 gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
-
 
 def ev_get_tool_vcf(wildcards):
     varcall_tool = map(
@@ -43,7 +42,7 @@ def ev_get_expected_alignments(wildcards):
     """
     For mapping-to-assembly-based call validation
     """
-    pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
     if wildcards.gene_list_name.startswith("pf6"):
         # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
@@ -79,10 +78,10 @@ def ev_get_expected_stats(wildcards):
             f"{gram_jointgeno}__pf6_analysis_set__7__13",
             #f"{gram_jointgeno}__pf6_analysis_set__12__13",
         ]
-        samples = record_to_sample_names(load_pf6(config["pf6_validation_tsv"]))
+        samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):
         tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
-        samples = record_to_sample_names(load_pvgv(config["pvgv_validation_tsv"]))
+        samples = cu_record_to_sample_names(cu_load_pvgv(config["pvgv_validation_tsv"]))
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
     return expand(

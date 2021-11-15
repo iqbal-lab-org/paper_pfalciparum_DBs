@@ -18,7 +18,7 @@ container: config["container_gramtools"]
 
 
 include: f"../common_utils.py"
-GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 include: f"../{WORKFLOW}/utils.py"
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
@@ -42,14 +42,14 @@ gene_list_name="pf6_26_genes"
 
 
 ## "ref" must be prepended to sample names so that we place a ref genome slice at the beginning of the msas/prgs.
-sample_names = ["ref"] + get_sample_names(dataset_name, fws_threshold=95)
+sample_names = ["ref"] + cu_get_sample_names(dataset_name, fws_threshold=95)
 genes = load_bed(gene_list_name)
 ##### 
 
 output_catted_genes = Path(
     f'{output_base}/{dataset_name}/catted_genes'
     )
-mk_output_dirs(dir())
+cu_mk_output_dirs(dir())
 
 
 rule all:
@@ -63,7 +63,7 @@ rule all:
 rule mp_make_beds:
     input:
         bed=f'{config["gene_bed_dir"]}/{gene_list_name}.bed',
-        ref_genome_index=f'{get_ref_genome_no_wildcards(dataset_name)}.fai',
+        ref_genome_index=f'{cu_get_ref_genome_no_wildcards(dataset_name)}.fai',
     output:
         bed_genes=f'{output_beds}/{gene_list_name}/genes_{config["flank_size"]}.bed',
         bed_invariants=(
@@ -90,8 +90,8 @@ rule mp_make_beds:
 rule mp_induce_gene_sequences:
     input:
         bed_genes=rules.mp_make_beds.output.bed_genes,
-        ref_genome=get_ref_genome_no_wildcards(dataset_name),
-        vcf=get_one_vcf,
+        ref_genome=cu_get_ref_genome_no_wildcards(dataset_name),
+        vcf=mp_get_one_vcf,
     output:
         expand(
             f"{output_gene_portions}/{{sample_name}}/{{gene}}.fa",
@@ -163,7 +163,7 @@ rule mp_make_var_prg:
 rule mp_make_nonvar_prg_portions:
     input:
         nonvars=rules.mp_make_beds.output.bed_invariants,
-        ref_genome=get_ref_genome,
+        ref_genome=cu_get_ref_genome,
     output:
         nonvar_prgs=touch(
             f"{output_base}/{{dataset_name}}/mn5_mml{{min_match_len}}/nonvars_done.txt"
