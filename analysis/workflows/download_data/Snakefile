@@ -28,21 +28,23 @@ output_gene_beds = Path(f"{output_base}/gene_beds")
 output_ref_genomes = Path(f"{output_base}/ref_genomes")
 output_pacb_pf_assemblies = Path(f"{output_base}/pacb_ilmn_pf/assemblies")
 output_vcfs = Path(f"{output_base}/vcfs")
-mk_output_dirs(dir())
+cu_mk_output_dirs(dir())
 
 ena_records = (
-    load_pf6(config["pf6_tsv"], ignored_pattern="ENA")
-    + load_pvgv(config["pvgv_tsv"])
-    + load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    cu_load_pf6(config["pf6_tsv"])
+    + cu_load_pvgv(config["pvgv_tsv"])
+    + cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 )
 
 sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
 pacb_pf_fnames = [
     f"{record.sample_name}.April2018.fasta.gz"
-    for record in load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    for record in cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 ]
 
-pf_chrom_list = list(map(lambda v: f"0{v}", range(1,10))) + list(map(str,range(10,15)))
+pf_chrom_list = list(map(lambda v: f"0{v}", range(1, 10))) + list(
+    map(str, range(10, 15))
+)
 
 
 rule all:
@@ -63,13 +65,14 @@ rule all:
         ),
         gene_beds=expand(
             f"{output_gene_beds}/{{gene_list_name}}.bed",
-            gene_list_name=config["pf6_gene_list_files"]+config["pvivax_gene_list_files"],
+            gene_list_name=config["pf6_gene_list_files"]
+            + config["pvivax_gene_list_files"],
         ),
         vcfs=expand(
-                f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}.vcf.gz",
-                gene_list_name=config["pf6_gene_list_files"],
-                dataset=["pf6","pf7"]
-        )
+            f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}_filterPASS.vcf.gz",
+            gene_list_name=config["pf6_gene_list_files"],
+            dataset=["pf6", "pf7"],
+        ),
 
 
 rule dd_ena:
@@ -162,7 +165,7 @@ rule dd_make_gene_bed:
     input:
         gene_list_file=f'{config["gene_list_dir"]}/{{gene_list_name}}.txt',
         genome_gff=(
-            lambda wildcards: f"{output_ref_genomes}/{gene_list_to_genome(wildcards)}.gff3.gz"
+            lambda wildcards: f"{output_ref_genomes}/{cu_gene_list_to_genome(wildcards)}.gff3.gz"
         ),
     output:
         gene_bed=f"{output_gene_beds}/{{gene_list_name}}.bed",
@@ -196,10 +199,10 @@ rule dd_get_vcf:
 rule dd_concat_vcfs:
     input:
         vcfs=expand(
-                f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
-                chrom=pf_chrom_list,
-                allow_missing=True
-        )
+            f"{output_vcfs}/{{dataset_name}}/{{chrom}}.vcf.gz",
+            chrom=pf_chrom_list,
+            allow_missing=True,
+        ),
     output:
         vcf=f"{output_vcfs}/{{dataset_name}}/combined.vcf.gz",
     shell:
@@ -208,22 +211,28 @@ rule dd_concat_vcfs:
         bcftools index {output.vcf}
         """
 
+
 def get_vcf_to_subset(wildcards):
     if wildcards.dataset == "pf6":
         return f"{output_vcfs}/{wildcards.dataset}/combined.vcf.gz"
     elif wildcards.dataset == "pf7":
         return config["pf7_vcf"]
 
+
 rule dd_subset_vcfs:
     input:
         vcf=get_vcf_to_subset,
         gene_bed=f"{output_gene_beds}/{{gene_list_name}}.bed",
     output:
-        f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}.vcf.gz",
+        vcf_nofilter=f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}.vcf.gz",
+        vcf_filterPASS=(
+            f"{output_vcfs}/{{dataset}}/combined_{{gene_list_name}}_filterPASS.vcf.gz"
+        ),
     shell:
         """
         mkdir -p $(dirname {output})
         regions=$(awk 'ORS=","{{start=$2 + 1;print $1":"start"-"$3}}' {input.gene_bed})
-        bcftools view -r "$regions" {input.vcf} -Oz > {output}
-        bcftools index {output}
+        bcftools view -r "$regions" {input.vcf} -Oz > {output.vcf_nofilter}
+        bcftools view -f "PASS,." {output.vcf_nofilter} -Oz > {output.vcf_filterPASS}
+        bcftools index {output.vcf_filterPASS}
         """

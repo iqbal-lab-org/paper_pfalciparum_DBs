@@ -19,7 +19,7 @@ def ev_get_tool_vcf(wildcards):
     elif wildcards.tool == "paolo_pvgv":
         return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif malariagen_vcf:
-        return f'{config["dl_output_dir"]}/vcfs/{wildcards.tool}/combined_{wildcards.gene_list_name}.vcf.gz'
+        return f'{config["dl_output_dir"]}/vcfs/{wildcards.tool}/combined_{wildcards.gene_list_name}_filterPASS.vcf.gz'
     elif any(varcall_tool):
         tool_path = f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/'
         if wildcards.tool.startswith("gram"):

@@ -18,6 +18,7 @@ configfile: f"analysis/configs/{WORKFLOW}.yaml"
 include: f"../common_utils.py"
 include: f"../{WORKFLOW}/utils.py"
 
+
 container: config["container_gramtools"]
 
 
@@ -26,13 +27,12 @@ output_varifier_pf = output_base / "pacb_ilmn_pf" / "varifier"
 output_bowtie2_pf = output_base / "pacb_ilmn_pf" / "bowtie2"
 output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
-mk_output_dirs(dir())
+cu_mk_output_dirs(dir())
 
 # Samples
-pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
-
 
 
 rule all:
@@ -45,7 +45,7 @@ rule all:
         bowtie2_pf_validation=expand(
             f"{output_bowtie2_pf}/{{gene_list}}/{{outputs}}",
             gene_list=config["pf6_gene_lists"],
-            outputs=["stats.tsv","plots/R_mean_NM.pdf"],
+            outputs=["stats.tsv", "plots/R_mean_NM.pdf"],
         ),
         induced_ref_mapping_stats_pf6=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
@@ -73,7 +73,7 @@ rule ev_bowtie2_pf_map:
     input:
         truth_ref_idx=rules.ev_index_pacb_assemblies.output,
         ref_genome=(
-            lambda wildcards: f'{config["ref_genome_dir"]}/{gene_list_to_genome(wildcards)}.genome.fasta.gz'
+            lambda wildcards: f'{config["ref_genome_dir"]}/{cu_gene_list_to_genome(wildcards)}.genome.fasta.gz'
         ),
         var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
         vcf=ev_get_tool_vcf,
@@ -164,7 +164,7 @@ rule ev_induced_ref_map_reads:
         subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
         induced_ref=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.fa.gz",
     params:
-        vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py', 
+        vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
     threads: 4
     shadow:
         "shallow"
@@ -209,7 +209,7 @@ rule ev_induced_ref_get_stats:
     output:
         f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py', 
+        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
         "python3 {params.script} {input.bed} {input.ref_genome} {input.vcf} {input.bam} {output} {wildcards.sample_name}:{wildcards.tool}"
 
@@ -221,11 +221,12 @@ rule ev_induced_ref_collect_all_stats:
         temp(f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_noheader.tsv"),
     run:
         # Run in python as in shell the argument list is too long
-        with open(output[0],"w") as fout:
+        with open(output[0], "w") as fout:
             for fname in input:
                 with open(fname) as fin:
                     stats = fin.read()
                 fout.write(stats)
+
 
 rule ev_induced_ref_all_stats_add_header:
     # I tried using subprocess in 'run' above to get header, but throws 'PermissionError'
@@ -236,7 +237,7 @@ rule ev_induced_ref_all_stats_add_header:
     shadow:
         "shallow"
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py', 
+        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
         """
         python3 {params.script} --header > header.tsv

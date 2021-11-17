@@ -87,7 +87,7 @@ def cu_get_ref_genome_no_wildcards(dataset_name):
 
 
 def cu_get_ref_genome(wildcards):
-    return get_ref_genome_no_wildcards(wildcards.dataset_name)
+    return cu_get_ref_genome_no_wildcards(wildcards.dataset_name)
 
 
 ##################
