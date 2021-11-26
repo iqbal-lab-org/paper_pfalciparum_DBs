@@ -85,6 +85,8 @@ def mean_and_std(numbers: Iterable[int]) -> Tuple[float, float]:
     squared_total = 0
     region_length = 0
     for number in numbers:
+        if number is None:
+            continue
         region_length += 1
         total += number
         squared_total += number ** 2

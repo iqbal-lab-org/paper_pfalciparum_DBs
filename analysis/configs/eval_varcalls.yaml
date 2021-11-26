@@ -1,3 +1,5 @@
 assemblies_dir: "analysis/outputs/download_data/pacb_ilmn_pf/assemblies"
 pf6_gene_lists: ["pf6_26_genes"]
+ev_bed_files:
+    pf6_26_genes: "analysis/input_data/eval_varcalls/pf6_26_genes_and_DBL.bed"
 pvgv_gene_lists: ["pvivax_7_genes"]

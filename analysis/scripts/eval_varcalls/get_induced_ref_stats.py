@@ -180,7 +180,10 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
         num_total += 1
         if majority_pileup_is_non_ref(pileup):
             num_disagreeing += 1
-    record["fraction_disagreeing_pileup"] = round(num_disagreeing / num_total, 3)
+    if num_total == 0:
+        record["fraction_disagreeing_pileup"] = None
+    else:
+        record["fraction_disagreeing_pileup"] = round(num_disagreeing / num_total, 3)
     for limit in [0, 9]:
         record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(
             depths, limit
@@ -209,7 +212,10 @@ def populate_stats_reads(
         if read_paired and read_mapped and not mate_mapped:
             read_stats["fraction_reads_paired_one_unmapped"] += 1
     for metric in read_stats:
-        read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
+        if num_reads == 0:
+            read_stats[metric] = None
+        else:
+            read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
     for limit in [0, 9, 29]:
         metric_name = f"fraction_reads_mapped_and_paired_mapq_{limit + 1}_or_more"
         read_stats[metric_name] = round(1 - get_fraction_leq_limit(mapqs, limit), 3)
@@ -234,7 +240,6 @@ def populate_stats_reads(
 @click.option("--tool_name", required=True)
 @click.option(
     "--out_fname",
-    type=click.File("w"),
     default=sys.stdout,
     help="File to write to. Default: stdout",
 )
@@ -262,6 +267,7 @@ def main(
     translated_bed = translate_bed(Path(bed_fname), ref_fname, vcf_fname)
 
     log_file = Path(str(out_fname)).with_suffix(".translated_bed.txt").open("w")
+    out_fhandle = open(out_fname, "w")
 
     insert_mean, insert_std = None, None
     if bed_for_insert_size is not None:
@@ -270,7 +276,7 @@ def main(
         )
 
     for bed_line in translated_bed:
-        log_file.write("\t".join(bed_line))
+        log_file.write("\t".join(map(str,bed_line)))
         gene_name = bed_line[3].strip()
         reg_start = int(bed_line[1]) + 1
         reg_end = int(bed_line[2])
@@ -282,7 +288,9 @@ def main(
         populate_stats_reads(
             record, bam_fname, bed_line[0], reg_start, reg_end, insert_mean, insert_std
         )
-        print(record, file=out_fname)
+        print(record, file=out_fhandle)
+
+    out_fhandle.close()
 
 
 if __name__ == "__main__":

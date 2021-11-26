@@ -34,6 +34,9 @@ pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
 pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
+def ev_get_evaluation_bed(wildcards):
+    return config["ev_bed_files"][wildcards.gene_list_name]
+
 
 rule all:
     input:
@@ -202,7 +205,8 @@ rule ev_induced_ref_map_reads:
 
 rule ev_induced_ref_get_stats:
     input:
-        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
+        bed_for_evaluation=ev_get_evaluation_bed,
+        bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
         ref_genome=cu_get_ref_genome,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
         bam=rules.ev_induced_ref_map_reads.output.bam,
@@ -211,7 +215,7 @@ rule ev_induced_ref_get_stats:
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
-        "python3 {params.script} {input.bed} {input.ref_genome} {input.vcf} {input.bam} {output} {wildcards.sample_name}:{wildcards.tool}"
+        "python3 {params.script} {input.bed_for_evaluation} {input.ref_genome} {input.vcf} {input.bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}"
 
 
 rule ev_induced_ref_collect_all_stats:
@@ -240,6 +244,6 @@ rule ev_induced_ref_all_stats_add_header:
         script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
         """
-        python3 {params.script} --header > header.tsv
+        python3 {params.script} --header_only > header.tsv
         cat header.tsv {input} > {output}
         """
