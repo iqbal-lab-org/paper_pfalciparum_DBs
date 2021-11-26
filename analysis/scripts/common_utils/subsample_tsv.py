@@ -42,12 +42,11 @@ def main():
         reader = DictReader(fin, delimiter="\t")
         header = "\t".join(reader.fieldnames)
         for row in reader:
-            if row["Exclusion reason"] == "Analysis_set":
-                line = "\t".join(row.values())
-                if row["Sample"] in included_samples:
-                    output_samples.append(line)
-                else:
-                    selection_samples[row["Country"]].append(line)
+            line = "\t".join(row.values())
+            if row["Sample"] in included_samples:
+                output_samples.append(line)
+            else:
+                selection_samples[row["Country"]].append(line)
 
     if len(output_samples) != len(included_samples):
         raise ValueError(

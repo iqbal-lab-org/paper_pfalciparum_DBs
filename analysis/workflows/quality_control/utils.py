@@ -34,7 +34,8 @@ def qc_get_expected_vcf_stats(wildcards):
             gram_adju,
             f"{gram_jointgeno}__{wildcards.dataset_name}__7__13",
         ]
-        samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
+        samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
+        #samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
     return expand(
@@ -50,7 +51,8 @@ def qc_get_mapped_reads(wildcards):
 
 def qc_get_expected_read_stats(wildcards):
     if wildcards.dataset_name.startswith("pf6"):
-        samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
+        samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
+        #samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
     dataset_name = wildcards.dataset_name.split("_")[0]
