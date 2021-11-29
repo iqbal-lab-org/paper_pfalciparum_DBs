@@ -40,8 +40,11 @@ class Stats:
         "gene",
         "bases_mapped_cigar",
         "base_error_rate",
-        "fraction_disagreeing_pileup",
+        "fraction_disagreeing_pileup_min1x",
+        "fraction_disagreeing_pileup_min5x",
+        "fraction_disagreeing_pileup_min10x",
         "fraction_positions_0x_or_less",
+        "fraction_positions_4x_or_less",
         "fraction_positions_9x_or_less",
         "fraction_reads_paired",
         "fraction_reads_mapped_and_paired",
@@ -55,7 +58,7 @@ class Stats:
     ]
 
     def __init__(self, sample_name: str, tool_name: str, gene_name: str):
-        self.gene = {attribute: "None" for attribute in self.attributes}
+        self.gene = {attribute: "NA" for attribute in self.attributes}
         self.gene["sample"] = sample_name
         self.gene["tool"] = tool_name
         self.gene["gene"] = gene_name
@@ -159,7 +162,6 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
     """
     Computes the fraction of positions that do not match, and fraction of positions under a given depth
     """
-    num_disagreeing, num_total = 0, 0
     mpileup_output = sam_mpileup(
         str(input_bam),
         "-r",
@@ -174,27 +176,33 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
         mpileup_output,
     )
     depths = list(map(lambda line: int(line.split("\t")[3]), mpileup_output))
+    if len(depths) > 0:
+        for limit in [0, 4, 9]:
+            record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(
+                depths, limit
+            )
+    num_disagreeing = {1:0,5:0,10:0}
+    num_total = 0
     for pileup, depth in zip(pileups, depths):
         if depth == 0:
             continue
         num_total += 1
         if majority_pileup_is_non_ref(pileup):
-            num_disagreeing += 1
+            for limit in num_disagreeing:
+                if depth >= limit:
+                    num_disagreeing[limit] += 1
     # Condition controls for no mapped reads in region
     if num_total == 0:
         return
-    record["fraction_disagreeing_pileup"] = round(num_disagreeing / num_total, 3)
-    for limit in [0, 9]:
-        record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(
-            depths, limit
-        )
+    for limit in num_disagreeing:
+        record[f"fraction_disagreeing_pileup_min{limit}x"] = round(num_disagreeing[limit] / num_total, 3)
 
 
 def populate_stats_reads(
     record, input_bam, chrom, start, end, insert_mean: float, insert_std: float
 ) -> None:
     alignment_file = AlignmentFile(input_bam)
-    read_stats = {metric: 0 for metric in Stats.attributes[8:15]}
+    read_stats = {metric: 0 for metric in Stats.attributes[11:18]}
     mapqs = list()
     tlens = list()
     num_reads = 0
