@@ -42,8 +42,7 @@ def ev_get_expected_alignments(wildcards):
     """
     For mapping-to-assembly-based call validation
     """
-    pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-    pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
+    pacb_ilmn_snames = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
     if wildcards.gene_list_name.startswith("pf6"):
         # baseline: runs mapping on an empty vcf, giving a baseline to compare tools to
         tools = [
@@ -63,6 +62,24 @@ def ev_get_expected_alignments(wildcards):
         tool=tools,
     )
 
+def ev_get_expected_varifier_outputs(gene_list_name):
+    pacb_ilmn_snames = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
+    if gene_list_name.startswith("pf6"):
+        tools = [
+            "octopus",
+            gram_adju,
+            "cortex",
+            "pf7",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
+        ]
+    else:
+        raise ValueError(f"Unsupported dataset name: {dataset_name}")
+    return expand(
+        f"{output_varifier_pf}/{gene_list_name}/{{tool}}/{{sample_name}}/summary_stats.json",
+        sample_name=pacb_ilmn_snames,
+        tool=tools,
+    )
+
 
 def ev_get_expected_stats(wildcards):
     """
@@ -75,7 +92,7 @@ def ev_get_expected_stats(wildcards):
             "octopus",
             "pf6",
             gram_adju,
-            f"{gram_jointgeno}__pf6_analysis_set__7__13",
+            f"{gram_jointgeno}__pf6_analysis_set_fws95__7__13",
             #f"{gram_jointgeno}__pf6_analysis_set__12__13",
         ]
         samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))

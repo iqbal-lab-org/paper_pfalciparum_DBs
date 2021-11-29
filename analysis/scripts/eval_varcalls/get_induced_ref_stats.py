@@ -180,10 +180,10 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
         num_total += 1
         if majority_pileup_is_non_ref(pileup):
             num_disagreeing += 1
+    # Condition controls for no mapped reads in region
     if num_total == 0:
-        record["fraction_disagreeing_pileup"] = None
-    else:
-        record["fraction_disagreeing_pileup"] = round(num_disagreeing / num_total, 3)
+        return
+    record["fraction_disagreeing_pileup"] = round(num_disagreeing / num_total, 3)
     for limit in [0, 9]:
         record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(
             depths, limit
@@ -197,7 +197,9 @@ def populate_stats_reads(
     read_stats = {metric: 0 for metric in Stats.attributes[8:15]}
     mapqs = list()
     tlens = list()
-    for num_reads, read in enumerate(alignment_file.fetch(chrom, start, end)):
+    num_reads = 0
+    for read in alignment_file.fetch(chrom, start, end):
+        num_reads += 1
         read_paired = read.is_paired
         read_mapped = not read.is_unmapped
         mate_mapped = not read.mate_is_unmapped
@@ -211,11 +213,10 @@ def populate_stats_reads(
             read_stats["fraction_reads_properly_paired_aligner"] += 1
         if read_paired and read_mapped and not mate_mapped:
             read_stats["fraction_reads_paired_one_unmapped"] += 1
+    if num_reads == 0:
+        return
     for metric in read_stats:
-        if num_reads == 0:
-            read_stats[metric] = None
-        else:
-            read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
+        read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
     for limit in [0, 9, 29]:
         metric_name = f"fraction_reads_mapped_and_paired_mapq_{limit + 1}_or_more"
         read_stats[metric_name] = round(1 - get_fraction_leq_limit(mapqs, limit), 3)

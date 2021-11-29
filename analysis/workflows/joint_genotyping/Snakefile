@@ -15,7 +15,7 @@ GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gram_build = output_base / f"gram_build_{GMTOOLS_COMMIT}"
 output_gram_gtype = output_base / f"gram_jointgeno_{GMTOOLS_COMMIT}"
-mk_output_dirs(dir())
+cu_mk_output_dirs(dir())
 prg_dir = f'{config["output_dir"]}/make_prgs'
 
 

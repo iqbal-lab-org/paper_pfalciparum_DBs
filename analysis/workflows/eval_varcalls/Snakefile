@@ -29,9 +29,6 @@ output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
 cu_mk_output_dirs(dir())
 
-# Samples
-pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-pacb_ilmn_snames = [rec.sample_name for rec in pacb_ilmn_records]
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 def ev_get_evaluation_bed(wildcards):
@@ -40,11 +37,7 @@ def ev_get_evaluation_bed(wildcards):
 
 rule all:
     input:
-        varifier_pf_validation=expand(
-            f"{output_varifier_pf}/{{tool}}_{{sample_name}}.json",
-            tool=["octopus", gram_adju, "cortex"],
-            sample_name=pacb_ilmn_snames,
-        ),
+        varifier_pf_validation=ev_get_expected_varifier_outputs("pf6_26_genes"),
         bowtie2_pf_validation=expand(
             f"{output_bowtie2_pf}/{{gene_list}}/{{outputs}}",
             gene_list=config["pf6_gene_lists"],
@@ -138,7 +131,7 @@ rule ev_varifier_validation:
         vcf=ev_get_tool_vcf,
         assembly=cu_get_assembly,
     output:
-        f"{output_base}/{{dataset_name}}/varifier/{{tool}}_{{sample_name}}.json",
+        expand(f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/{{fname}}",fname=["summary_stats.json","precision.vcf","recall/recall.vcf"],allow_missing=True)
     container:
         config["container_minos"]
     resources:
@@ -149,8 +142,8 @@ rule ev_varifier_validation:
         """
         gzip -dc {input.assembly} > assembly.fa
         gzip -dc {input.ref_genome} > ref.fa
-        varifier vcf_eval --no_maxmatch assembly.fa ref.fa {input.vcf} ./varifier
-        cp ./varifier/summary_stats.json {output}
+        output_dirname=$(dirname {output[0]})
+        varifier vcf_eval --force --no_maxmatch assembly.fa ref.fa {input.vcf} $output_dirname
         """
 
 
