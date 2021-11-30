@@ -23,11 +23,11 @@ rule all:
     input:
         read_coverage=expand(
             f"{output_read_stats}/{{dataset_name}}/read_stats.tsv",
-            dataset_name=["pf6_analysis_set_fws95"],
+            dataset_name=["pf6_analysis_set_fws95","pacb_ilmn_pf"],
         ),
         vcf_stats=expand(
             f"{output_vcf_stats}/{{dataset_name}}/{{gene_list}}/vcf_stats.tsv",
-            dataset_name=["pf6_analysis_set_fws95"],
+            dataset_name=["pf6_analysis_set_fws95","pacb_ilmn_pf"],
             gene_list=["pf6_26_genes"],
         ),
 

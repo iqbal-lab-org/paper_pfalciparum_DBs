@@ -132,8 +132,6 @@ rule ev_varifier_validation:
         assembly=cu_get_assembly,
     output:
         expand(f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/{{fname}}",fname=["summary_stats.json","precision.vcf","recall/recall.vcf"],allow_missing=True)
-    container:
-        config["container_minos"]
     resources:
         mem_mb=5000,
     shadow:
@@ -141,7 +139,7 @@ rule ev_varifier_validation:
     shell:
         """
         gzip -dc {input.assembly} > assembly.fa
-        gzip -dc {input.ref_genome} > ref.fa
+        gzip -dc {input.ref_genome} | seqkit seq -u > ref.fa
         output_dirname=$(dirname {output[0]})
         varifier vcf_eval --force --no_maxmatch assembly.fa ref.fa {input.vcf} $output_dirname
         """

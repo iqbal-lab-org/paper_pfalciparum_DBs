@@ -145,7 +145,7 @@ From: ubuntu:focal
 
     cd ${HOME}
     git clone https://github.com/iqbal-lab-org/varifier
-    cd varifier && git checkout 718a787fd8490ea33a79b5095884e66e12106399
+    cd varifier && git checkout 9f05477b5e48e96264c392fbd14ca98d1ed86e48
     pip3 install .
     cd .. && rm -r varifier
 
