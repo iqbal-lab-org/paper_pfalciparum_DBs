@@ -99,6 +99,16 @@ def ev_get_expected_stats(wildcards):
     elif wildcards.dataset_name.startswith("pvgv"):
         tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
         samples = cu_record_to_sample_names(cu_load_pvgv(config["pvgv_validation_tsv"]))
+    elif wildcards.dataset_name.startswith("pacb_ilmn_pf"):
+        tools = [
+            "baseline",
+            "cortex",
+            "octopus",
+            "pf7",
+            gram_adju,
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
+            ]
+        samples = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
     return expand(

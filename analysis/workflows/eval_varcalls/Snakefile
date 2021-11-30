@@ -45,7 +45,7 @@ rule all:
         ),
         induced_ref_mapping_stats_pf6=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
-            dataset_name=["pf6"],
+            dataset_name=["pf6","pacb_ilmn_pf"],
             gene_list=config["pf6_gene_lists"],
         ),
 
