@@ -242,6 +242,7 @@ def populate_stats_reads(
 @click.command()
 @click.argument("bed_fname", type=click.Path(exists=True))
 @click.argument("ref_fname", type=click.Path(exists=True))
+@click.argument("induced_ref_fname", type=click.Path(exists=True))
 @click.argument("vcf_fname", type=click.Path(exists=True))
 @click.argument("bam_fname", type=click.Path(exists=True))
 @click.option("--bed_for_insert_size", "-bi", type=click.Path(exists=True))
@@ -262,6 +263,7 @@ def populate_stats_reads(
 def main(
     bed_fname,
     ref_fname,
+    induced_ref_fname,
     vcf_fname,
     bam_fname,
     bed_for_insert_size,
@@ -293,7 +295,7 @@ def main(
         region = f"{bed_line[0]}:{reg_start}-{reg_end}"
 
         populate_stats_SN(record, bam_fname, region)
-        populate_stats_pileup(record, bam_fname, ref_fname, region)
+        populate_stats_pileup(record, bam_fname, induced_ref_fname, region)
         populate_stats_reads(
             record, bam_fname, bed_line[0], reg_start, reg_end, insert_mean, insert_std
         )

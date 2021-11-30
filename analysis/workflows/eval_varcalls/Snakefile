@@ -201,6 +201,7 @@ rule ev_induced_ref_get_stats:
         bed_for_evaluation=ev_get_evaluation_bed,
         bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
         ref_genome=cu_get_ref_genome,
+        induced_ref_genome=rules.ev_induced_ref_map_reads.output.induced_ref,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
         bam=rules.ev_induced_ref_map_reads.output.bam,
     output:
@@ -208,7 +209,7 @@ rule ev_induced_ref_get_stats:
     params:
         script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
-        "python3 {params.script} {input.bed_for_evaluation} {input.ref_genome} {input.vcf} {input.bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}"
+        "python3 {params.script} {input.bed_for_evaluation} {input.ref_genome} {input.induced_ref_genome} {input.vcf} {input.bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}"
 
 
 rule ev_induced_ref_collect_all_stats:
