@@ -9,6 +9,7 @@ from pysam import (
     stats as sam_stats,
     mpileup as sam_mpileup,
 )
+from numpy import absolute
 
 from eval_varcalls.shift_to_induced_genome_coords import translate_bed
 
@@ -55,6 +56,7 @@ class Stats:
         "fraction_reads_properly_paired_aligner",
         "fraction_reads_above_mean_ins_size_plus_two_std",
         "fraction_reads_below_mean_ins_size_minus_two_std",
+        "max_insert_size",
     ]
 
     def __init__(self, sample_name: str, tool_name: str, gene_name: str):
@@ -202,9 +204,10 @@ def populate_stats_reads(
     record, input_bam, chrom, start, end, insert_mean: float, insert_std: float
 ) -> None:
     alignment_file = AlignmentFile(input_bam)
-    read_stats = {metric: 0 for metric in Stats.attributes[11:18]}
+    read_stats = {metric: 0 for metric in Stats.attributes[11:19]}
     mapqs = list()
     tlens = list()
+    max_tlen = 0
     num_reads = 0
     for read in alignment_file.fetch(chrom, start, end):
         num_reads += 1
@@ -216,7 +219,10 @@ def populate_stats_reads(
         if read_paired and read_mapped and mate_mapped:
             read_stats["fraction_reads_mapped_and_paired"] += 1
             mapqs.append(read.mapping_quality)
-            tlens.append(read.tlen)
+            abs_tlen = absolute(read.tlen)
+            if abs_tlen > max_tlen:
+                max_tlen = abs_tlen
+            tlens.append(abs_tlen)
         if read_paired and read.is_proper_pair and read_mapped:
             read_stats["fraction_reads_properly_paired_aligner"] += 1
         if read_paired and read_mapped and not mate_mapped:
@@ -237,6 +243,7 @@ def populate_stats_reads(
         record[
             "fraction_reads_below_mean_ins_size_minus_two_std"
         ] = get_fraction_leq_limit(tlens, insert_mean - 2 * insert_std)
+        record["max_insert_size"] = max_tlen
 
 
 @click.command()

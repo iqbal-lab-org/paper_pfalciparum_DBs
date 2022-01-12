@@ -4,7 +4,11 @@ from math import sqrt
 from typing import List, Tuple, Iterable, Optional
 import warnings
 
-from pysam import AlignmentFile, mpileup as samtools_mpileup
+from pysam import (
+    AlignmentFile,
+    mpileup as sam_mpileup,
+)
+from numpy import absolute
 
 from common_utils.qc import QCMeasure
 from common_utils.genome_region import RegionMode, GenomeRegion, genome_regions_from_bed
@@ -122,18 +126,22 @@ def add_read_stats(
     Extracts (mean, std) of read depth and base qualities, across all `regions`
     """
     pileup_out = list()
-    read_lengths = list()
+    read_lengths, tlens = list(), list()
     alignment_file = AlignmentFile(bam_fname)
     for region in regions:
         mpileup_command = ["-a", "-r", region.to_dash_r(), bam_fname]
-        pileup_out += samtools_mpileup(*mpileup_command, split_lines=True)
+        pileup_out += sam_mpileup(*mpileup_command, split_lines=True)
         for read in alignment_file.fetch(region.chrom, int(region.start), int(region.end)):
             read_lengths.append(read.infer_read_length())
+            if read.tlen != 0:
+                tlens.append(absolute(read.tlen))
 
     metrics = {
         "mapping_depth": get_pileup_depths,
         "base_quality": get_pileup_base_qual,
         "read_length": lambda _: read_lengths,
+        "insert_size": lambda _: tlens,
+        "insert_size_below_10000": lambda _: filter(lambda tlen: tlen < 10000, tlens)
     }
     if region_for_naming is None:
         region_for_naming = region
