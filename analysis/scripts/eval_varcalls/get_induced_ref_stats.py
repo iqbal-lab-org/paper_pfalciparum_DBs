@@ -11,7 +11,7 @@ from pysam import (
 )
 from numpy import absolute
 
-from eval_varcalls.shift_to_induced_genome_coords import translate_bed
+from common_utils.shift_to_induced_genome_coords import translate_bed
 
 
 def print_header(ctx, param, value):

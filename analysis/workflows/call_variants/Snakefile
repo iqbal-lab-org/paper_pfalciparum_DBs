@@ -24,26 +24,34 @@ ds_to_ref = {
     "pacb_ilmn_pf": "Pfalciparum",
 }
 
-GMTOOLS_COMMIT = get_gmtools_commit(config["container_gramtools"])
+GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed',
+TARGET_GENES = "DBLMSP|DBLMSP2"
+INSERT_SIZE_MEAN = 300
+INSERT_SIZE_STDV = 1000
+
+GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gramtools = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
 output_samtools = output_base / "samtools"
 output_octopus = output_base / "octopus"
 output_cortex = output_base / "cortex"
+output_gapfiller = output_base / "gapfiller"
 output_ref_genomes = output_base / "ref_genomes"
-output_mapped_reads = output_base / "mapped_reads"
-mk_output_dirs(dir())
+output_mapped_reads_original = output_base / "mapped_reads" / "original_ref"
+output_mapped_reads_induced = output_base / "mapped_reads" / "induced_ref"
+cu_mk_output_dirs(dir())
 
-pacb_ilmn_records = load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
-pf6_records = load_pf6(config["pf6_tsv"],use_analysis_set=True)
-pvgv_records = load_pvgv(config["pvgv_tsv"])
+pacb_ilmn_records = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+pf6_records = cu_load_pf6(config["pf6_tsv"],use_analysis_set=True)
+pvgv_records = cu_load_pvgv(config["pvgv_tsv"])
 all_records = pacb_ilmn_records + pf6_records
+#all_records = [rec for rec in pf6_records if rec.sample_name == "PE0089-C"]
 
 
 rule all:
     input:
-        gramtools_genotyping=expand(
-            f"{output_gramtools}/{{record.dataset_name}}/{{record.sample_name}}/final.vcf.gz",
+        gapfiller_vcfs=expand(
+            f"{output_gapfiller}/{{record.dataset_name}}/{{record.sample_name}}/gapfiller_rebased.vcf.gz",
             record=all_records,
         ),
 
@@ -74,9 +82,9 @@ rule cv_bwa_map_reads:
         finished_idx_file=(
             lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref.bwt"
         ),
-        reads=get_reads,
+        reads=cu_get_reads,
     output:
-        f"{output_mapped_reads}/{{dataset_name}}/{{sample_name}}/mapped.bam"
+        f"{output_mapped_reads_original}/{{dataset_name}}/{{sample_name}}/mapped.bam"
     threads: 4
     shadow:
         "shallow"
@@ -111,7 +119,7 @@ rule cv_run_samtools:
 
 rule cv_run_octopus:
     input:
-        ref_genome=get_ref_genome,
+        ref_genome=cu_get_ref_genome,
         mapped_reads=rules.cv_bwa_map_reads.output,
     output:
         f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
@@ -130,8 +138,8 @@ rule cv_run_octopus:
 
 rule cv_run_cortex:
     input:
-        ref_genome=get_ref_genome,
-        reads=get_reads,
+        ref_genome=cu_get_ref_genome,
+        reads=cu_get_reads,
     output:
         f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
     resources:
@@ -151,12 +159,12 @@ rule cv_run_cortex:
 
 rule cv_gramtools_adjudicate:
     input:
-        ref_genome=get_ref_genome,
+        ref_genome=cu_get_ref_genome,
         octopus_vcf=(
             f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz"
         ),
         cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
-        reads=get_reads,
+        reads=cu_get_reads,
     output:
         vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         build_rep=(
@@ -182,3 +190,81 @@ rule cv_gramtools_adjudicate:
         mv gram/build_report.json {output.build_rep}
         mv genotype/genotype_report.json {output.geno_rep}
         """
+
+rule cv_map_to_induced_ref:
+    input:
+        ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
+        adju_vcf = rules.cv_gramtools_adjudicate.output.vcf,
+        reads=cu_get_reads,
+    output:
+        induced_bam = f"{output_mapped_reads_induced}/{{dataset_name}}/{{sample_name}}/mapped.bam",
+        induced_ref = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+    shadow:
+        "shallow"
+    threads: 4
+    resources:
+        mem_mb=4000,
+    shell:
+        """
+        mkdir -p $(dirname {output.induced_ref})
+        cp {input.adju_vcf} adju.vcf.gz
+        bcftools index adju.vcf.gz
+        bgzip -dc {input.ref_genome} | bcftools consensus -s {wildcards.sample_name} adju.vcf.gz > induced_ref.fa
+        bwa index induced_ref.fa
+        bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
+        samtools sort -o {output.induced_bam} -O BAM mapped.sam
+        samtools index {output.induced_bam}
+        bgzip -c induced_ref.fa > {output.induced_ref}
+        """
+
+rule cv_run_gapfiller:
+    input:
+        induced_bam = rules.cv_map_to_induced_ref.output.induced_bam,
+        induced_ref = rules.cv_map_to_induced_ref.output.induced_ref,
+        adju_vcf = rules.cv_gramtools_adjudicate.output.vcf,
+        initial_bed = GENE_BED,
+        ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
+    output:
+        gapfiller_vcf = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/gapfiller.vcf.gz",
+        gapfiller_vcf_rebased = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/gapfiller_rebased.vcf.gz",
+        translated_bed = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_features.bed",
+        mapped_contig_bam = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/mapped_contigs.bam", 
+    shadow:
+        "shallow"
+    resources:
+        mem_mb=4000,
+    params:
+        script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
+        script_rebase=f'{config["scripts"]}/{WORKFLOW}/rebase_calls.py',
+        TARGET_GENES=TARGET_GENES,
+        INSERT_SIZE_MEAN = INSERT_SIZE_MEAN,
+        INSERT_SIZE_STDV = INSERT_SIZE_STDV
+    shell:
+        """
+        grep -E "{params.TARGET_GENES}" {input.initial_bed} > targeted.bed
+        python3 {params.script_bed_translate} targeted.bed {input.ref_genome} {input.adju_vcf} {output.translated_bed}
+        IFS="\n"; for gene_line in $(cat {output.translated_bed})
+        do
+            IFS="\t"; elems=($gene_line)
+            adjusted_start=$((${{elems[1]}} + 1))
+            reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
+            gene_name=${{elems[3]}}
+            samtools view -h {input.induced_bam} $reg | samtools sort -n > gene_reads.bam
+            #GapFiller --query-sam {input.induced_bam} --seed-sam gene_reads.bam --seed-ins {params.INSERT_SIZE_MEAN} --seed-var {params.INSERT_SIZE_STDV} --output-prefix gene_contigs
+            GapFiller --query-sam gene_reads.bam --seed-sam gene_reads.bam --seed-ins {params.INSERT_SIZE_MEAN} --seed-var {params.INSERT_SIZE_STDV} --output-prefix gene_contigs
+            seqkit replace -p "contig" -r "${{gene_name}}_contig" gene_contigs.fasta >> all_gene_contigs.fasta
+        done
+        minimap2 -a -c --cs -R "@RG\\tID:1\\tSM:{wildcards.sample_name}" {input.induced_ref} all_gene_contigs.fasta | samtools sort > {output.mapped_contig_bam}
+        samtools index {output.mapped_contig_bam}
+        bgzip -dc {input.induced_ref} > induced_ref.fa
+        samtools faidx induced_ref.fa
+        octopus -I {output.mapped_contig_bam} -R induced_ref.fa --organism-ploidy 1 -o gapfiller.vcf
+        bgzip gapfiller.vcf && bcftools index gapfiller.vcf.gz 
+        bcftools filter -o {output.gapfiller_vcf} -Oz -R {output.translated_bed} -i 'FORMAT/DP > 2' gapfiller.vcf.gz
+        python3 {params.script_rebase} {output.gapfiller_vcf} {input.induced_ref} {input.adju_vcf} gapfiller_rebased.vcf 
+        bgzip -c gapfiller_rebased.vcf > {output.gapfiller_vcf_rebased}
+        # Check the rebased variants are consistent with the original reference; errors (return code != 0) if not
+        bcftools index {output.gapfiller_vcf_rebased}
+        bcftools consensus -f {input.ref_genome} {output.gapfiller_vcf_rebased} > /dev/null
+        """
+    
