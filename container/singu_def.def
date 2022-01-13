@@ -75,7 +75,7 @@ From: ubuntu:focal
 	cd ${HOME}
 	git clone https://github.com/iqbal-lab-org/gramtools
 	cd gramtools 
-    git checkout ebf7bcd51cdf7e1de6d1af3c36d1f31c3c59ec9e 
+    git checkout 22d8574f7728c011a78ff713755b7769c58ab12d
     mkdir build 
     cd build
     conan install .. -s compiler.libcxx=libstdc++11 --build=missing
@@ -160,6 +160,15 @@ From: ubuntu:focal
     wget -O cd-hit.tar.gz https://github.com/weizhongli/cdhit/releases/download/V4.8.1/cd-hit-v4.8.1-2019-0228.tar.gz
     tar xf cd-hit.tar.gz && cd-hit-v4.8.1-2019-0228 && make && cp {cd-hit,cd-hit-est} /usr/bin/ && cd ..
     rm -rf cd-hit*
+
+    ## GapFiller (local de novo assembly of paired-end reads)
+    cd ${HOME}
+    wget https://sourceforge.net/projects/gapfiller/files/v2.1.2/gapfiller-2.1.2.tar.gz/download -O - | tar xfz -
+    cd gapfiller-2.1.2
+    apt install -y libboost-program-options1.71-dev/focal libboost-iostreams1.71-dev/focal
+    ./configure && make
+    cp ./src/GapFiller /usr/bin
+    cp .. && rm -r gapfiller-2.1.2
 
 
     ##### Currently tested ends here #######
