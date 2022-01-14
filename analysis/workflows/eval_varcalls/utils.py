@@ -6,10 +6,16 @@ GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 gram_adju = f"gram_adju_{GMTOOLS_COMMIT}"
 gram_jointgeno = f"gram_jointgeno_{GMTOOLS_COMMIT}"
 
+def ev_get_ref_genome(wildcards):
+    if wildcards.tool == "gapfiller":
+        return f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/induced_ref.fa.gz'
+    else:
+        return f'{config["ref_genome_dir"]}/{cu_gene_list_to_genome(wildcards)}.genome.fasta.gz'
+
 def ev_get_tool_vcf(wildcards):
     varcall_tool = map(
         lambda target: wildcards.tool.startswith(target),
-        ["cortex", "octopus", "gram_adju"],
+        ["cortex", "octopus", "gram_adju","gapfiller"],
     )
     malariagen_vcf = wildcards.tool in {"pf6","pf7"}
     if wildcards.tool == "baseline":
@@ -50,8 +56,8 @@ def ev_get_expected_alignments(wildcards):
             "octopus",
             gram_adju,
             "cortex",
+            "gapfiller",
             "pf7",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set__7__13",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
         ]
     else:

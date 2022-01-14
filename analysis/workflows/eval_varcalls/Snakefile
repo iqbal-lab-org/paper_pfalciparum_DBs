@@ -34,6 +34,12 @@ bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "
 def ev_get_evaluation_bed(wildcards):
     return config["ev_bed_files"][wildcards.gene_list_name]
 
+def ev_get_var_bed(wildcards):
+    if wildcards.tool == "gapfiller":
+        return f'{config["varcall_dir"]}/{wildcards.tool}/{wildcards.dataset_name}/{wildcards.sample_name}/induced_features.bed'
+    else:
+        return f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+
 
 rule all:
     input:
@@ -68,10 +74,8 @@ rule ev_index_pacb_assemblies:
 rule ev_bowtie2_pf_map:
     input:
         truth_ref_idx=rules.ev_index_pacb_assemblies.output,
-        ref_genome=(
-            lambda wildcards: f'{config["ref_genome_dir"]}/{cu_gene_list_to_genome(wildcards)}.genome.fasta.gz'
-        ),
-        var_regions=f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
+        ref_genome=ev_get_ref_genome,
+        var_regions=ev_get_var_bed,
         vcf=ev_get_tool_vcf,
     output:
         f"{output_base}/{{dataset_name}}/bowtie2/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",

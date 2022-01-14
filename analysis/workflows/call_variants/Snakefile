@@ -26,7 +26,7 @@ ds_to_ref = {
 
 GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed',
 TARGET_GENES = "DBLMSP|DBLMSP2"
-INSERT_SIZE_MEAN = 300
+INSERT_SIZE_MEAN = 600
 INSERT_SIZE_STDV = 1000
 
 GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
@@ -46,6 +46,7 @@ pf6_records = cu_load_pf6(config["pf6_tsv"],use_analysis_set=True)
 pvgv_records = cu_load_pvgv(config["pvgv_tsv"])
 all_records = pacb_ilmn_records + pf6_records
 #all_records = [rec for rec in pf6_records if rec.sample_name == "PE0089-C"]
+#all_records = [rec for rec in pacb_ilmn_records if rec.sample_name == "PfGA01"]
 
 
 rule all:
@@ -243,6 +244,7 @@ rule cv_run_gapfiller:
         """
         grep -E "{params.TARGET_GENES}" {input.initial_bed} > targeted.bed
         python3 {params.script_bed_translate} targeted.bed {input.ref_genome} {input.adju_vcf} {output.translated_bed}
+        samtools view -G 2 {input.induced_bam} > not_properly_aligned.sam
         IFS="\n"; for gene_line in $(cat {output.translated_bed})
         do
             IFS="\t"; elems=($gene_line)
@@ -250,17 +252,17 @@ rule cv_run_gapfiller:
             reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
             gene_name=${{elems[3]}}
             samtools view -h {input.induced_bam} $reg | samtools sort -n > gene_reads.bam
-            #GapFiller --query-sam {input.induced_bam} --seed-sam gene_reads.bam --seed-ins {params.INSERT_SIZE_MEAN} --seed-var {params.INSERT_SIZE_STDV} --output-prefix gene_contigs
-            GapFiller --query-sam gene_reads.bam --seed-sam gene_reads.bam --seed-ins {params.INSERT_SIZE_MEAN} --seed-var {params.INSERT_SIZE_STDV} --output-prefix gene_contigs
+            cat <(samtools view -h {input.induced_bam} $reg) not_properly_aligned.sam | samtools sort > query_reads.bam
+            GapFiller --query-sam query_reads.bam --seed-sam gene_reads.bam --seed-ins {params.INSERT_SIZE_MEAN} --seed-var {params.INSERT_SIZE_STDV} --output-prefix gene_contigs
             seqkit replace -p "contig" -r "${{gene_name}}_contig" gene_contigs.fasta >> all_gene_contigs.fasta
         done
         minimap2 -a -c --cs -R "@RG\\tID:1\\tSM:{wildcards.sample_name}" {input.induced_ref} all_gene_contigs.fasta | samtools sort > {output.mapped_contig_bam}
         samtools index {output.mapped_contig_bam}
         bgzip -dc {input.induced_ref} > induced_ref.fa
         samtools faidx induced_ref.fa
-        octopus -I {output.mapped_contig_bam} -R induced_ref.fa --organism-ploidy 1 -o gapfiller.vcf
+        octopus -I {output.mapped_contig_bam} -R induced_ref.fa --organism-ploidy 1 --assemble-all -o gapfiller.vcf
         bgzip gapfiller.vcf && bcftools index gapfiller.vcf.gz 
-        bcftools filter -o {output.gapfiller_vcf} -Oz -R {output.translated_bed} -i 'FORMAT/DP > 2' gapfiller.vcf.gz
+        bcftools filter -o {output.gapfiller_vcf} -Oz -R {output.translated_bed} -i 'FORMAT/DP > 2 & FILTER="PASS"' gapfiller.vcf.gz
         python3 {params.script_rebase} {output.gapfiller_vcf} {input.induced_ref} {input.adju_vcf} gapfiller_rebased.vcf 
         bgzip -c gapfiller_rebased.vcf > {output.gapfiller_vcf_rebased}
         # Check the rebased variants are consistent with the original reference; errors (return code != 0) if not
