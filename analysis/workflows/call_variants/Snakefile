@@ -25,7 +25,6 @@ ds_to_ref = {
 }
 
 GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed',
-TARGET_GENES = "DBLMSP|DBLMSP2"
 INSERT_SIZE_MEAN = 600
 INSERT_SIZE_STDV = 1000
 
@@ -223,7 +222,7 @@ rule cv_run_gapfiller:
         induced_bam = rules.cv_map_to_induced_ref.output.induced_bam,
         induced_ref = rules.cv_map_to_induced_ref.output.induced_ref,
         adju_vcf = rules.cv_gramtools_adjudicate.output.vcf,
-        initial_bed = GENE_BED,
+        target_bed = GENE_BED,
         ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
     output:
         gapfiller_vcf = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/gapfiller.vcf.gz",
@@ -237,13 +236,11 @@ rule cv_run_gapfiller:
     params:
         script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
         script_rebase=f'{config["scripts"]}/{WORKFLOW}/rebase_calls.py',
-        TARGET_GENES=TARGET_GENES,
         INSERT_SIZE_MEAN = INSERT_SIZE_MEAN,
         INSERT_SIZE_STDV = INSERT_SIZE_STDV
     shell:
         """
-        grep -E "{params.TARGET_GENES}" {input.initial_bed} > targeted.bed
-        python3 {params.script_bed_translate} targeted.bed {input.ref_genome} {input.adju_vcf} {output.translated_bed}
+        python3 {params.script_bed_translate} {input.target_bed} {input.ref_genome} {input.adju_vcf} {output.translated_bed}
         samtools view -G 2 {input.induced_bam} > not_properly_aligned.sam
         IFS="\n"; for gene_line in $(cat {output.translated_bed})
         do

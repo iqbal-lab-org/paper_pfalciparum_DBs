@@ -81,6 +81,7 @@ rule ev_bowtie2_pf_map:
         f"{output_base}/{{dataset_name}}/bowtie2/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
     params:
         idx_prefix=f"{output_bowtie2_indexes}/{{sample_name}}",
+        induce_seq_script=f'{config["common_scripts"]}/induce_gene_seqs.sh',
     shadow:
         "shallow"
     resources:
@@ -88,21 +89,10 @@ rule ev_bowtie2_pf_map:
     shell:
         """
         mkdir -p $(dirname {output})
-        > gene_portions.fa
-        cp {input.vcf} input.vcf.gz
-        bcftools index input.vcf.gz
-        IFS="\n"; for gene_line in $(cat {input.var_regions})
-        do
-            IFS="\t"; elems=($gene_line)    
-            adjusted_start=$((${{elems[1]}} + 1))
-            reg="${{elems[0]}}:${{adjusted_start}}-${{elems[2]}}"
-            gene_name=${{elems[3]}}
-            sample_name="{wildcards.sample_name}"
-            if [[ "{wildcards.tool}" == "baseline" ]]; then sample_name="sample"; fi
-            samtools faidx {input.ref_genome} $reg | bcftools consensus -s "$sample_name" input.vcf.gz |
-                sed 's@>.*@>'"${{gene_name}}"'@' >> gene_portions.fa
-        done
-
+        sample_name="{wildcards.sample_name}"
+        if [[ "{wildcards.tool}" == "baseline" ]]; then sample_name="sample"; fi
+        bash {params.induce_seq_script} {input.var_regions} {input.vcf} {input.ref_genome} gene_seqs "$sample_name" 0
+        cat gene_seqs/* > gene_portions.fa
         bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output}
         """
 

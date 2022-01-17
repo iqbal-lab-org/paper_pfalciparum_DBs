@@ -105,7 +105,9 @@ rule mp_induce_gene_sequences:
     shell:
         """
         outdir=$(dirname {output[0]})
-        bash {params.induce_seq_script} {input.bed_genes} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name}
+        sample_name="{wildcards.sample_name}"
+        if [[ "{wildcards.sample_name}" == "ref" ]]; then sample_name="sample"; fi
+        bash {params.induce_seq_script} {input.bed_genes} {input.vcf} {input.ref_genome} $outdir "$sample_name"
         """
 
 
