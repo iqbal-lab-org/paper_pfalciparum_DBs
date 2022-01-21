@@ -141,16 +141,16 @@ rule ev_varifier_validation:
 
 rule ev_induced_ref_map_reads:
     input:
-        bed=f'{config["dl_output_dir"]}/gene_beds/{{gene_list_name}}.bed',
-        ref_genome=cu_get_ref_genome,
+        bed=ev_get_var_bed,
+        ref_genome=ev_get_ref_genome,
         vcf=ev_get_tool_vcf,
         reads=cu_get_reads,
     output:
-        bam=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam",
-        bai=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.bam.bai",
-        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz",
-        subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.vcf.gz.csi",
-        induced_ref=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}.fa.gz",
+        bam=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}/mapped.bam",
+        bai=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}/mapped.bam.bai",
+        subsetted_vcf=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}/{{tool}}.vcf.gz",
+        subs_vcf_index=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}/{{tool}}.vcf.gz.csi",
+        induced_ref=f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}/induced_ref.fa.gz",
     params:
         vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
     threads: 4
@@ -192,16 +192,31 @@ rule ev_induced_ref_get_stats:
     input:
         bed_for_evaluation=ev_get_evaluation_bed,
         bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
-        ref_genome=cu_get_ref_genome,
-        induced_ref_genome=rules.ev_induced_ref_map_reads.output.induced_ref,
+        # Below 'initial' are only for extra translation (e.g. gapfiller)
+        initial_ref_genome=cu_get_ref_genome,
+        initial_vcf=ev_get_initial_vcf,
+        ref_genome=ev_get_ref_genome,
         vcf=rules.ev_induced_ref_map_reads.output.subsetted_vcf,
+        induced_ref_genome=rules.ev_induced_ref_map_reads.output.induced_ref,
         bam=rules.ev_induced_ref_map_reads.output.bam,
     output:
         f"{output_ir}/{{dataset_name}}/{{gene_list_name}}/{{tool}}/{{sample_name}}_ir_stats.tsv",
+    shadow:
+        "shallow"
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
+        script_get_stats=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
+        script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
     shell:
-        "python3 {params.script} {input.bed_for_evaluation} {input.ref_genome} {input.induced_ref_genome} {input.vcf} {input.bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}"
+        """
+        cp {input.bed_for_evaluation} bed_for_eval.bed
+        cp {input.bed_for_insert_size} bed_for_is.bed
+        if [[ "{wildcards.tool}" == "gapfiller" ]];then
+            python3 {params.script_bed_translate} {input.bed_for_evaluation} {input.initial_ref_genome} {input.initial_vcf} bed_for_eval.bed
+            python3 {params.script_bed_translate} {input.bed_for_insert_size} {input.initial_ref_genome} {input.initial_vcf} bed_for_is.bed
+        fi
+        python3 {params.script_get_stats} bed_for_eval.bed {input.ref_genome} {input.induced_ref_genome} {input.vcf} {input.bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi bed_for_is.bed
+        """
+        
 
 
 rule ev_induced_ref_collect_all_stats:

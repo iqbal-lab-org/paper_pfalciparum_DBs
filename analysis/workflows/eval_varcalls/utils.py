@@ -43,6 +43,13 @@ def ev_get_tool_vcf(wildcards):
     else:
         raise ValueError(f"Unsupported toolname {wildcards.tool}")
 
+def ev_get_initial_vcf(wildcards):
+    """
+    For extra bed translation step
+    """
+    if wildcards.tool == "gapfiller":
+        wildcards.tool = gram_adju
+    return ev_get_tool_vcf(wildcards)
 
 def ev_get_expected_alignments(wildcards):
     """
@@ -99,7 +106,7 @@ def ev_get_expected_stats(wildcards):
             "pf6",
             gram_adju,
             f"{gram_jointgeno}__pf6_analysis_set_fws95__7__13",
-            #f"{gram_jointgeno}__pf6_analysis_set__12__13",
+            "gapfiller",
         ]
         samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
     elif wildcards.dataset_name.startswith("pvgv"):
@@ -122,3 +129,4 @@ def ev_get_expected_stats(wildcards):
         tool=tools,
         sample_name=samples,
     )
+
