@@ -81,7 +81,7 @@ rule ev_bowtie2_pf_map:
         f"{output_base}/{{dataset_name}}/bowtie2/{{gene_list_name}}/{{tool}}/{{sample_name}}.sam",
     params:
         idx_prefix=f"{output_bowtie2_indexes}/{{sample_name}}",
-        induce_seq_script=f'{config["common_scripts"]}/induce_gene_seqs.sh',
+        script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
     shadow:
         "shallow"
     resources:
@@ -91,7 +91,7 @@ rule ev_bowtie2_pf_map:
         mkdir -p $(dirname {output})
         sample_name="{wildcards.sample_name}"
         if [[ "{wildcards.tool}" == "baseline" ]]; then sample_name="sample"; fi
-        bash {params.induce_seq_script} {input.var_regions} {input.vcf} {input.ref_genome} gene_seqs "$sample_name" 0
+        bash {params.script_induce_seqs} {input.var_regions} {input.vcf} {input.ref_genome} gene_seqs "$sample_name" 0
         cat gene_seqs/* > gene_portions.fa
         bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output}
         """
@@ -105,17 +105,17 @@ rule ev_bowtie2_pf_stats:
         stats_tsv=f"{output_bowtie2_pf}/{{gene_list_name}}/stats.tsv",
         plot=f"{output_bowtie2_pf}/{{gene_list_name}}/plots/R_mean_NM.pdf",
     params:
-        stats_script=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
-        plot_script=f'{config["scripts"]}/{WORKFLOW}/plot_alignments.R',
+        script_alignment_stats=f'{config["scripts"]}/{WORKFLOW}/process_alignments.py',
+        script_plot=f'{config["scripts"]}/{WORKFLOW}/plot_alignments.R',
         alignments_dir=f"{output_bowtie2_pf}/{{gene_list_name}}",
     shadow:
         "shallow"
     shell:
         """
-        python3 {params.stats_script} {params.alignments_dir} {input.var_regions} {output.stats_tsv}
+        python3 {params.script_alignment_stats} {params.alignments_dir} {input.var_regions} {output.stats_tsv}
         plot_dir=$(dirname {output.plot})
         mkdir -p "$plot_dir"
-        Rscript {params.plot_script} {output.stats_tsv} "$plot_dir"
+        Rscript {params.script_plot} {output.stats_tsv} "$plot_dir"
         """
 
 
@@ -242,9 +242,9 @@ rule ev_induced_ref_all_stats_add_header:
     shadow:
         "shallow"
     params:
-        script=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
+        script_induced_ref_stats=f'{config["scripts"]}/{WORKFLOW}/get_induced_ref_stats.py',
     shell:
         """
-        python3 {params.script} --header_only > header.tsv
+        python3 {params.script_induced_ref_stats} --header_only > header.tsv
         cat header.tsv {input} > {output}
         """
