@@ -6,6 +6,6 @@ def jg_get_gram_build(wildcards):
         if wildcards.dataset_name.startswith(recognised_name):
             elems = wildcards.dataset_name.split("@")
             dataset_name = elems[-1]
-            return f"{output_gram_build}/{dataset_name}/{wildcards.gene_list_name}_mml{wildcards.min_match_len}_k{wildcards.kmer_size}/kmers_stats"
+            return f"{output_gram_build}/{dataset_name}/{wildcards.datasubset_name}/{wildcards.tool}/{wildcards.gene_list_name}_mml{wildcards.min_match_len}_k{wildcards.kmer_size}/kmers_stats"
     raise ValueError(f"Support for {wildcards.dataset_name} not implemented")
 

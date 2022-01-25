@@ -59,7 +59,7 @@ def translate_bed(input_bed: Path, input_ref_genome: Path, input_vcf: Path):
                     chrom, end_pos, searchable_map
                 ).__str__()
             else:
-                translated_start_pos = start_pos
+                translated_start_pos = start_pos - 1
                 translated_end_pos = end_pos
             result.append([chrom, translated_start_pos, translated_end_pos] + rows[3:])
     return result
@@ -89,4 +89,4 @@ if __name__ == "__main__":
     translated_bed = translate_bed(input_bed, input_ref_genome, input_vcf)
     with output_bed.open("w") as bed_out:
         for line in translated_bed:
-            bed_out.write("\t".join(line))
+            bed_out.write("\t".join(map(str,line)))

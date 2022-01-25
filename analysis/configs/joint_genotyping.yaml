@@ -1,2 +1,2 @@
-min_match_len: [7, 12]
+min_match_len: [7]
 kmer_size: [13]

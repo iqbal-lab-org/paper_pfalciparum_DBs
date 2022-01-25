@@ -20,13 +20,12 @@ prg_dir = f'{config["output_dir"]}/make_prgs'
 
 
 # These two arrays' elements are paired together
-#dataset_names = ["pf6_analysis_set", "pacb_ilmn_pf@pf6_analysis_set", "pvgv"]
-#gene_list_names = ["pf6_25_genes", "pf6_25_genes","pvivax_7_genes"]
-dataset_names = ["pf6_analysis_set_fws95", "pacb_ilmn_pf@pf6_analysis_set_fws95"]
+dataset_names = ["pf6", "pacb_ilmn_pf@pf6"]
+datasubset_names = ["analysis_set_fws95"]
 gene_list_names = ["pf6_26_genes"]
 
 def get_fofn(wcards):
-    result = f"{output_gram_gtype}/{wcards.dataset_name}/final_merged/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}_fofn_{{ext}}.txt"
+    result = f"{output_gram_gtype}/{wcards.dataset_name}/{wcards.datasubset_name}/{wcards.tool}/final_merged/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}_fofn_{{ext}}.txt"
     if wcards.ext == "json":
         return result.format(ext="json")
     elif wcards.ext == "vcf.gz":
@@ -38,8 +37,8 @@ def expand_inputs(wcards):
     """
     Produces the gramtools output vcfs based on a dataset name, paired with a gene list name.
     """
-    sample_names = cu_get_sample_names_fws_matching(wcards.dataset_name)
-    result = f"{output_gram_gtype}/{wcards.dataset_name}/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}/{{sample_name}}/final.{{ext}}"
+    sample_names = cu_get_sample_names_fws_matching(wcards.dataset_name + wcards.datasubset_name)
+    result = f"{output_gram_gtype}/{wcards.dataset_name}/{wcards.datasubset_name}/{wcards.tool}/{wcards.gene_list_name}_{wcards.min_match_len}_{wcards.kmer_size}/{{sample_name}}/final.{{ext}}"
     ext = ""
     if wcards.ext == "json":
         ext = "json"
@@ -55,8 +54,10 @@ def expand_inputs(wcards):
 rule all:
     input:
         expand(
-                f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{extension}}",
+                f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{extension}}",
         dataset_name=dataset_names,
+        datasubset_name=datasubset_names,
+        tool=[f"gram_adju_{GMTOOLS_COMMIT}","gapfiller"],
         gene_list_name=gene_list_names,
         min_match_len=config["min_match_len"],
         kmer_size=config["kmer_size"],
@@ -68,9 +69,9 @@ rule all:
 rule jg_gramtools_build:
     input:
         ref_genome=cu_get_ref_genome,
-        prg=f"{prg_dir}/{{dataset_name}}/mn5_mml{{min_match_len}}/{{gene_list_name}}_prg",
+        prg=f"{prg_dir}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/mn5_mml{{min_match_len}}/{{gene_list_name}}_prg",
     output:
-        f"{output_gram_build}/{{dataset_name}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/kmers_stats",
+        f"{output_gram_build}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/{{gene_list_name}}_mml{{min_match_len}}_k{{kmer_size}}/kmers_stats",
     resources:
         mem_mb=20000,
     shell:
@@ -85,31 +86,27 @@ rule jg_gramtools_genotype:
         gram_build=jg_get_gram_build,
         reads=cu_get_reads,
     output:
-        vcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
-        indexed=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz.csi",
-        jvcf=f"{output_gram_gtype}/{{dataset_name}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.json",
+        vcf=f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.vcf.gz",
+        jvcf=f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/final.json",
+    params:
+        geno_dir=f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}/{{sample_name}}/genotyped",
     threads: 10
     resources:
         mem_mb=5000,
-    shadow:
-        "shallow"
     shell:
         """
         gram_build=$(dirname {input.gram_build})
-        gramtools genotype -i ${{gram_build}} -o genotyped --reads {input.reads} --sample_id {wildcards.sample_name} --max_threads {threads}
-        gram_geno=$(dirname {output.vcf})
-        mkdir -p "$gram_geno"
-        cp genotyped/*.json "${{gram_geno}}/"
-        cp genotyped/genotype/*.vcf.gz {output.vcf}
+        gramtools genotype -i ${{gram_build}} -o {params.geno_dir} --reads {input.reads} --sample_id {wildcards.sample_name} --max_threads {threads} --force
+        cp {params.geno_dir}/genotype/*.vcf.gz {output.vcf}
         bcftools index {output.vcf}
-        cp genotyped/genotype/genotyped.json {output.jvcf}
+        cp {params.geno_dir}/genotype/genotyped.json {output.jvcf}
         """
 
 rule jg_make_fofn:
     input:
         vcfs=expand_inputs,
     output:
-        fofn=f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_fofn_{{ext}}.txt",
+        fofn=f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_fofn_{{ext}}.txt",
     run:
         with open(output.fofn,"w") as outfile:
             for vcf in input.vcfs:
@@ -119,7 +116,7 @@ rule jg_merge_files:
     input:
         get_fofn,
     output:
-        f"{output_gram_gtype}/{{dataset_name}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{ext}}"
+        f"{output_gram_gtype}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/final_merged/{{gene_list_name}}_{{min_match_len}}_{{kmer_size}}_merged.{{ext}}"
     resources:
         mem_mb=10000,
     shell:
