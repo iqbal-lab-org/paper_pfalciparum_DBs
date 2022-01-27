@@ -195,8 +195,6 @@ def cu_get_sample_names(dataset_name, fws_threshold = None):
             assert re.match(supported_pattern,dataset_name) is not None, f"Fws filtering only supported for dataset name matching pattern {supported_pattern}"
         use_analysis_set = "analysis_set" in dataset_name
         sample_tsv = config["pf6_tsv"]
-        if dataset_name in {"pf6_analysis_set_1500", "pf6_analysis_set_3000"}:
-            sample_tsv = f"analysis/input_data/sample_lists/pf6/{dataset_name}.tsv"
         loaded_samples = cu_load_pf6(sample_tsv, use_analysis_set=use_analysis_set, fws_threshold = fws_threshold)
     elif dataset_name.startswith("pacb_ilmn_pf"):
         loaded_samples = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
