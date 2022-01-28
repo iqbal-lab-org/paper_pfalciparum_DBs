@@ -13,7 +13,6 @@ import sys
 def main(fstops,fin, fout):
     with open(fin) as fhandle_in:
         records = SeqIO.parse(fin,"fasta")
-        unique = set()
         used_translations = list()
         separate_stops = list()
         total = 0
@@ -27,11 +26,9 @@ def main(fstops,fin, fout):
                 num_stops += 1
                 if fstops is not None:
                     separate_stops.append(SeqRecord(translation,id=record.id,description=""))
-            elif str_translation not in unique:
-                unique.add(str_translation)
+            else:
                 used_translations.append(SeqRecord(translation,id=record.id,description=""))
 
-    print(f"Made {len(unique)} translations from {total} input records")
     print(f"Found {num_stops} translations with >1 stop codons")
 
     with open(fout,"w") as fhandle_out:

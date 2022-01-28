@@ -1,5 +1,3 @@
 paralog_abbrevs: ["DBs"]
 paralog_names:
     DBs: ["DBLMSP", "DBLMSP2"]
-focal_regions:
-    DBs: ["169_408"]
