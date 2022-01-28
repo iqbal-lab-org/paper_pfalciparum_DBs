@@ -218,7 +218,6 @@ rule ev_induced_ref_get_stats:
         """
         
 
-
 rule ev_induced_ref_collect_all_stats:
     input:
         ev_get_expected_stats,

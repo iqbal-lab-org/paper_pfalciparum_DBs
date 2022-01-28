@@ -233,17 +233,20 @@ def populate_stats_reads(
         read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
     for limit in [0, 9, 29]:
         metric_name = f"fraction_reads_mapped_and_paired_mapq_{limit + 1}_or_more"
-        read_stats[metric_name] = round(1 - get_fraction_leq_limit(mapqs, limit), 3)
+        if len(mapqs) > 0:
+            read_stats[metric_name] = round(1 - get_fraction_leq_limit(mapqs, limit), 3)
     for metric in read_stats:
         record[metric] = read_stats[metric]
     if insert_mean is not None:
-        record[
-            "fraction_reads_above_mean_ins_size_plus_two_std"
-        ] = round(1 - get_fraction_leq_limit(tlens, insert_mean + 2 * insert_std), 3)
-        record[
-            "fraction_reads_below_mean_ins_size_minus_two_std"
-        ] = get_fraction_leq_limit(tlens, insert_mean - 2 * insert_std)
-        record["max_insert_size"] = max_tlen
+        if max_tlen > 0:
+            record["max_insert_size"] = max_tlen
+        if len(tlens) > 0:
+            record[
+                "fraction_reads_above_mean_ins_size_plus_two_std"
+            ] = round(1 - get_fraction_leq_limit(tlens, insert_mean + 2 * insert_std), 3)
+            record[
+                "fraction_reads_below_mean_ins_size_minus_two_std"
+            ] = get_fraction_leq_limit(tlens, insert_mean - 2 * insert_std)
 
 
 @click.command()

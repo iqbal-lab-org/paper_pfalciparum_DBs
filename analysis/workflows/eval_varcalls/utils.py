@@ -37,9 +37,11 @@ def ev_get_tool_vcf(wildcards):
         elems = wildcards.tool.split("__")
         gram_version = elems[0]
         dataset_name = elems[1]
-        prg_min_match_len = elems[2]
-        prg_kmer_size = elems[3]
-        return f'{config["jointgeno_dir"]}/{gram_version}/{dataset_name}/{wildcards.gene_list_name}_{prg_min_match_len}_{prg_kmer_size}/{wildcards.sample_name}/final.vcf.gz'
+        datasubset_name = elems[2]
+        tool = elems[3]
+        prg_min_match_len = elems[4]
+        prg_kmer_size = elems[5]
+        return f'{config["jointgeno_dir"]}/{gram_version}/{dataset_name}/{datasubset_name}/{tool}/{wildcards.gene_list_name}_{prg_min_match_len}_{prg_kmer_size}/{wildcards.sample_name}/final.vcf.gz'
     else:
         raise ValueError(f"Unsupported toolname {wildcards.tool}")
 
@@ -65,7 +67,8 @@ def ev_get_expected_alignments(wildcards):
             "cortex",
             "gapfiller",
             "pf7",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__{gram_adju}__7__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {wildcards.dataset_name}")
@@ -83,7 +86,8 @@ def ev_get_expected_varifier_outputs(gene_list_name):
             gram_adju,
             "cortex",
             "pf7",
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__{gram_adju}__7__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {dataset_name}")
@@ -101,14 +105,15 @@ def ev_get_expected_stats(wildcards):
     if wildcards.dataset_name.startswith("pf6"):
         tools = [
             "baseline",
-            "cortex",
-            "octopus",
+            #"cortex",
+            #"octopus",
             "pf6",
-            gram_adju,
-            f"{gram_jointgeno}__pf6_analysis_set_fws95__7__13",
-            "gapfiller",
+            #gram_adju,
+            #"gapfiller",
+            f"{gram_jointgeno}__pf6__analysis_set_fws95__gapfiller__7__13",
+            f"{gram_jointgeno}__pf6__analysis_set_fws95__{gram_adju}__7__13",
         ]
-        samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
+        samples = cu_get_sample_names_fws_matching("pf6_analysis_set_fws95")
     elif wildcards.dataset_name.startswith("pvgv"):
         tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
         samples = cu_record_to_sample_names(cu_load_pvgv(config["pvgv_validation_tsv"]))

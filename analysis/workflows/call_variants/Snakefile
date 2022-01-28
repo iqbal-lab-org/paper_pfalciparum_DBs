@@ -24,7 +24,7 @@ ds_to_ref = {
     "pacb_ilmn_pf": "Pfalciparum",
 }
 
-GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed',
+GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed'
 INSERT_SIZE_MEAN = 600
 INSERT_SIZE_STDV = 1000
 
