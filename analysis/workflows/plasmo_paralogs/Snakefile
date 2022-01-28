@@ -46,7 +46,7 @@ def pp_get_paralog_family(wildcards):
 rule all:
     input:
         paralog_seqs=pp_get_all_paralog_regions(expand(
-                f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
+                f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
                 tool=tools,
                 sample_set_name=sample_set_names,
                 allow_missing=True
@@ -70,7 +70,9 @@ rule pp_induce_gene_seqs:
     shell:
         """
         outdir=$(dirname {output[0]})
-        bash {params.induce_seq_script} {input.bed} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name}
+        all_samples=0
+        if [[ {wildcards.sample_name} == "ref" ]];then all_samples=1;fi
+        bash {params.induce_seq_script} {input.bed} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name} 1 $all_samples
         """
 
 rule pp_cat_gene_seqs:
@@ -96,30 +98,8 @@ rule pp_cat_paralogs:
         pp_get_paralog_family,
     output:
         dna_seqs=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
-        dna_seqs_dedup=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_dedup.fa",
-    params:
-        deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
     shell:
         """
         cat {input} > {output.dna_seqs}
-        python3 {params.deduplication_script} {output.dna_seqs} {output.dna_seqs_dedup}
-        """
-
-rule pp_translate_to_protein:
-    input:
-        dna_seqs=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
-    output:
-        translated_protein=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
-        translated_premature_stops=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_premature_stops.fa",
-        translated_dedup=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.fa",
-        translated_dedup_tsv=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_deduplicated.tsv",
-    params:
-        translation_script=f'{config["scripts"]}/{WORKFLOW}/translate.py',
-        deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
-    shell:
-        """
-        mkdir -p $(dirname {output.translated_protein})
-        python3 {params.translation_script} {input.dna_seqs} {output.translated_protein} --fstops {output.translated_premature_stops}
-        python3 {params.deduplication_script} {output.translated_protein} {output.translated_dedup}
         """
 
