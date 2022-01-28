@@ -89,9 +89,11 @@ rule ev_bowtie2_pf_map:
     shell:
         """
         mkdir -p $(dirname {output})
-        sample_name="{wildcards.sample_name}"
-        if [[ "{wildcards.tool}" == "baseline" ]]; then sample_name="sample"; fi
-        bash {params.script_induce_seqs} {input.var_regions} {input.vcf} {input.ref_genome} gene_seqs "$sample_name" 0
+        all_samples=0
+        if [[ "{wildcards.tool}" == "baseline" ]]; then all_samples=1; fi
+        # 0: dont add sample_name in fasta output
+        # all_samples: controls if calls from sample_name in vcf are applied or not
+        bash {params.script_induce_seqs} {input.var_regions} {input.vcf} {input.ref_genome} gene_seqs {wildcards.sample_name} 0 $all_samples
         cat gene_seqs/* > gene_portions.fa
         bowtie2 -x {params.idx_prefix} -U gene_portions.fa -f > {output}
         """
