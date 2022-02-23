@@ -23,13 +23,16 @@ output_gram_version = output_base / gram_version
 cu_mk_output_dirs(dir())
 
 tools=["gapfiller",f"gram_adju_{GMTOOLS_COMMIT}"]
-sample_set_names=["pf6_analysis_set_fws95"]
+sample_set_names=["pf6_analysis_set_fws95","pacb_ilmn_pf@pf6_analysis_set_fws95"]
 
 gene_list_name="pf6_26_genes"
 genes = pp_filter_to_paralogs(cu_load_bed(gene_list_name))
 
 def pp_get_sample_seqs(wildcards):
-    sample_names = ["ref"] + cu_get_sample_names_fws_matching(wildcards.sample_set_name)
+    if wildcards.sample_set_name == "pf6_analysis_set_fws95":
+        sample_names = ["ref"] + cu_get_sample_names_fws_matching(wildcards.sample_set_name)[:10]
+    elif wildcards.sample_set_name == "pacb_ilmn_pf@pf6_analysis_set_fws95":
+        sample_names = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
     result= expand(
         f"{output_gene_portions}/{gram_version}/{wildcards.sample_set_name}/{wildcards.tool}/{{sample_name}}/{wildcards.paralog}.fa",
         sample_name=sample_names,
@@ -71,7 +74,7 @@ rule pp_induce_gene_seqs:
         """
         outdir=$(dirname {output[0]})
         all_samples=0
-        if [[ {wildcards.sample_name} == "ref" ]];then all_samples=1;fi
+        if [[ {wildcards.sample_name} == "ref" || {wildcards.sample_set_name} =~ pacb ]];then all_samples=1;fi
         bash {params.induce_seq_script} {input.bed} {input.vcf} {input.ref_genome} $outdir {wildcards.sample_name} 1 $all_samples
         """
 

@@ -20,4 +20,6 @@ def pp_get_one_vcf(wildcards):
         return f'{config["input_data"]}/template.vcf.gz'
     if wildcards.sample_set_name == "pf6_analysis_set_fws95":
         return f'{config["jointgeno_dir"]}/gram_jointgeno_{GMTOOLS_COMMIT}/pf6/analysis_set_fws95/{wildcards.tool}/pf6_26_genes_7_13/{wildcards.sample_name}/final.vcf.gz'
+    if wildcards.sample_set_name == "pacb_ilmn_pf@pf6_analysis_set_fws95":
+        return f'{config["jointgeno_dir"]}/gram_jointgeno_{GMTOOLS_COMMIT}/pacb_ilmn_pf@pf6/analysis_set_fws95/{wildcards.tool}/pf6_26_genes_7_13/{wildcards.sample_name}/final.vcf.gz'
     raise ValueError(f"Unsupported set of wildcards: {wildcards}")
