@@ -64,7 +64,7 @@ def cu_get_reads(wildcards):
         f'{config["dl_output_dir"]}/{{dataset_name}}/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
         for i in [1, 2]
     ]
-    for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf","clone_trees"]:
+    for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf","clone_trees","crosses"]:
         if wildcards.dataset_name.startswith(recognised_name):
             return [
                 read_file.format(dataset_name=recognised_name)
@@ -80,6 +80,7 @@ def cu_get_ref_genome_no_wildcards(dataset_name):
         "pvgv": "PvivaxP01",
         "pacb_ilmn_pf": "Pfalciparum",
         "clone_trees": "Pfalciparum",
+        "crosses": "Pfalciparum",
     }
     for key, val in ds_to_ref.items():
         if dataset_name.startswith(key):
@@ -97,8 +98,7 @@ _PV_GENOME = "29.05Mb"
 # Load sample tsvs#
 ##################
 class ENARecord:
-    DATASETS = {"pf6": _PF_GENOME, "pvgv": _PV_GENOME, "pacb_ilmn_pf": _PF_GENOME,
-            "clone_trees": _PF_GENOME}
+    DATASETS = {"pf6": _PF_GENOME, "pvgv": _PV_GENOME, "pacb_ilmn_pf": _PF_GENOME, "clone_trees": _PF_GENOME, "crosses": _PF_GENOME}
     def __init__(self, dataset_name: str, sample_name: str, ena_IDs: str):
         if dataset_name not in self.DATASETS:
             raise ValueError(f"{dataset_name} not in {self.DATASETS}")
@@ -190,6 +190,19 @@ def cu_load_clone_trees(tsv_fname: str) -> List[ENARecord]:
         for row in reader:
             result.append(
                 ENARecord("clone_trees", row["BAM_ID"], row["ENA_sample_accession"])
+            )
+    return result
+
+def cu_load_crosses(tsv_fname: str) -> List[ENARecord]:
+    result = list()
+    with open(tsv_fname) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        for row in reader:
+            # This sample seg faults for octopus
+            if row["Sample"] == "PG0017-C":
+                continue
+            result.append(
+                ENARecord("crosses", row["Sample"], row["Accession"])
             )
     return result
 
