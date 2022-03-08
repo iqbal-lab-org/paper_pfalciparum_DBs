@@ -89,13 +89,15 @@ def cu_get_ref_genome_no_wildcards(dataset_name):
 def cu_get_ref_genome(wildcards):
     return cu_get_ref_genome_no_wildcards(wildcards.dataset_name)
 
+_PF_GENOME = "23.33Mb"
+_PV_GENOME = "29.05Mb"
 
 ##################
 # Load sample tsvs#
 ##################
 class ENARecord:
-    DATASETS = {"pf6": "23.33Mb", "pvgv": "29.05Mb", "pacb_ilmn_pf": "23.33Mb"}
-
+    DATASETS = {"pf6": _PF_GENOME, "pvgv": _PV_GENOME, "pacb_ilmn_pf": _PF_GENOME,
+            "clone_trees": _PF_GENOME}
     def __init__(self, dataset_name: str, sample_name: str, ena_IDs: str):
         if dataset_name not in self.DATASETS:
             raise ValueError(f"{dataset_name} not in {self.DATASETS}")
@@ -107,8 +109,9 @@ class ENARecord:
 def cu_get_genome_size(dataset_name: str):
     return ENARecord.DATASETS[dataset_name]
 
-def _get_samples_below_fws(tsv_fname: str,fws_threshold: int):
-    if fws_threshold <= 0 or fws_threshold >=100:
+
+def _get_samples_below_fws(tsv_fname: str, fws_threshold: int):
+    if fws_threshold <= 0 or fws_threshold >= 100:
         raise ValueError("User-provided Fws threshold must be 0<x<100")
     used_fws_threshold = fws_threshold / 100
     fws_fname = Path(tsv_fname).parent / "Pf_6_fws.tsv"
@@ -122,7 +125,9 @@ def _get_samples_below_fws(tsv_fname: str,fws_threshold: int):
 
 
 def cu_load_pf6(
-        tsv_fname: str, use_analysis_set: bool = False, fws_threshold: Optional[float] = None
+    tsv_fname: str,
+    use_analysis_set: bool = False,
+    fws_threshold: Optional[float] = None,
 ) -> List[ENARecord]:
     ignored_samples = set()
     ignored_file = Path(tsv_fname).parent / "ignored_samples.tsv"
@@ -177,25 +182,42 @@ def cu_load_pacb_ilmn_pf(tsv_fname: str) -> List[ENARecord]:
     return result
 
 
+def cu_load_clone_trees(tsv_fname: str) -> List[ENARecord]:
+    result = list()
+    with open(tsv_fname) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        for row in reader:
+            result.append(
+                ENARecord("clone_trees", row["BAM_ID"], row["ENA_sample_accession"])
+            )
+    return result
+
+
 def cu_record_to_sample_names(records: List[ENARecord]):
     return [rec.sample_name for rec in records]
+
 
 def cu_get_sample_names_fws_matching(dataset_name):
     fws_pattern = "pf6.*fws([0-9]{1,2})"
     fws_threshold = re.match(fws_pattern, dataset_name)
     if fws_threshold is not None:
         fws_threshold = int(fws_threshold.groups()[0])
-    sample_names=cu_get_sample_names(dataset_name, fws_threshold=fws_threshold)
+    sample_names = cu_get_sample_names(dataset_name, fws_threshold=fws_threshold)
     return sample_names
 
-def cu_get_sample_names(dataset_name, fws_threshold = None):
+
+def cu_get_sample_names(dataset_name, fws_threshold=None):
     if dataset_name.startswith("pf6"):
         if fws_threshold is not None:
             supported_pattern = f"pf6.*fws{fws_threshold}"
-            assert re.match(supported_pattern,dataset_name) is not None, f"Fws filtering only supported for dataset name matching pattern {supported_pattern}"
+            assert (
+                re.match(supported_pattern, dataset_name) is not None
+            ), f"Fws filtering only supported for dataset name matching pattern {supported_pattern}"
         use_analysis_set = "analysis_set" in dataset_name
         sample_tsv = config["pf6_tsv"]
-        loaded_samples = cu_load_pf6(sample_tsv, use_analysis_set=use_analysis_set, fws_threshold = fws_threshold)
+        loaded_samples = cu_load_pf6(
+            sample_tsv, use_analysis_set=use_analysis_set, fws_threshold=fws_threshold
+        )
     elif dataset_name.startswith("pacb_ilmn_pf"):
         loaded_samples = cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     elif dataset_name == "pvgv":

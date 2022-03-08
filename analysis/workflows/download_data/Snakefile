@@ -34,7 +34,9 @@ ena_records = (
     cu_load_pf6(config["pf6_tsv"])
     + cu_load_pvgv(config["pvgv_tsv"])
     + cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
+    + cu_load_clone_trees(config["clone_tree_tsv"])
 )
+
 
 sample_to_ena_IDs = {record.sample_name: record.ena_IDs for record in ena_records}
 pacb_pf_fnames = [
