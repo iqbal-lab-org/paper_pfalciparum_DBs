@@ -83,7 +83,7 @@ wildcard_constraints:
 rule all:
     input:
         eval_stats=expand(
-                f"{output_ir_stats}/{{dataset_name}}/ir_stats.tsv",
+                f"{output_ir_stats}/{{dataset_name}}_ir_stats.tsv",
                 dataset_name=DATASET_NAMES
                 ),
         translated_beds=expand(
@@ -97,7 +97,8 @@ rule all:
                 ),
         # below will fail to run if above has not been already produced.
         #gene_seqs=expand(
-        #        f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
+        #        f"{output_gene_seqs}/{{dataset_name}}/{{tool}}/{{gene}}.fa",
+        #        dataset_name = DATASET_NAMES,
         #        tool = ALL_TOOLS,
         #        gene = GENES_TO_INDUCE
         #        )
@@ -212,13 +213,13 @@ rule gs_get_all_ir_stats:
     input:
         gs_get_expected_ir_stats,
     output:
-        f"{output_ir_stats}/{{dataset_name}}/ir_stats.tsv",
+        f"{output_ir_stats}/{{dataset_name}}_ir_stats.tsv",
     params:
         script_get_stats=f'{config["scripts"]}/eval_varcalls/get_induced_ref_stats.py',
     shell:
         """
         python3 {params.script_get_stats} --header_only > {output}
-        cat {output_ir_stats_per_sample}/*.tsv >> {output}
+        cat {output_ir_stats_per_sample}/{wildcards.dataset_name}/*.tsv >> {output}
         """
 
 
