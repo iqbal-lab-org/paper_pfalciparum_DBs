@@ -3,12 +3,13 @@ Workflow to genotype the clone tree samples
 Steps:
     * Run gramtools genotyping on the pf6 graph
     * Run my variant calling pipeline on top of that: octopus/cortex, adjudicate, gapfiller
-Re-uses the rules in other workflows, as modules to do so
+Re-uses the rules in other workflows, imported as modules, to do so
 """
 WORKFLOW = "clone_trees"
 
+
 configfile: "analysis/configs/common.yaml"
-#configfile: f"analysis/configs/{WORKFLOW}.yaml"
+
 
 include: "../common_utils.py"
 
@@ -16,7 +17,11 @@ include: "../common_utils.py"
 GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 # Input: gramtools pf6 graph
 GRAM_JOINT_GENO_PARAMS = "pf6__analysis_set_fws95__gapfiller__pf6_26_genes_mml7_k13"
-input_gram_build=f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/" + "/".join(GRAM_JOINT_GENO_PARAMS.split("__")) + "/kmers_stats"
+input_gram_build = (
+    f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/"
+    + "/".join(GRAM_JOINT_GENO_PARAMS.split("__"))
+    + "/kmers_stats"
+)
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 gram_joint_geno_path = f"gram_jointgeno_{GMTOOLS_COMMIT}__{GRAM_JOINT_GENO_PARAMS}"
@@ -25,38 +30,51 @@ output_octopus = output_base / "octopus"
 output_cortex = output_base / "cortex"
 output_gram_adju = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
 output_gapfiller = output_base / "gapfiller"
+output_ir_stats = output_base / "ir_stats"
+output_ir_stats_per_sample = output_ir_stats / "per_sample"
+output_ir_stats_per_sample.mkdir(exist_ok=True,parents=True)
 
 GENE_LIST_NAME = "pf6_26_genes"
 GENE_BED = f'{config["gene_bed_dir"]}/{GENE_LIST_NAME}.bed'
+GENE_BED_FOR_EVAL = config["eval_bed_files"][GENE_LIST_NAME]
+
 
 # This has to appear after output_ definitions and common_utils.py inclusion
 include: "utils.py"
 
-clone_tree_samples = [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])]
+
+clone_tree_samples = [
+    elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])
+]
 
 #### Modules ###
 config["min_match_len"] = None
 config["kmer_size"] = None
+
+
 module joint_geno:
-    snakefile: "../joint_genotyping/Snakefile"
-    config: config
+    snakefile:
+        "../joint_genotyping/Snakefile"
+    config:
+        config
+
 
 module call_variants:
-    snakefile: "../call_variants/Snakefile"
-    config: config
+    snakefile:
+        "../call_variants/Snakefile"
+    config:
+        config
+
 
 wildcard_constraints:
     sample_name="[^/]+",
     tool="[^/]+",
 
+
 rule all:
     input:
-        gapfiller_results = expand(
-            f"{output_gapfiller}/{{sample_name}}/{{output_file}}", 
-            sample_name =clone_tree_samples[:2],
-            output_file = ["induced_ref_mapped.bam",f"{GENE_LIST_NAME}_induced.bed"]
+        f"{output_ir_stats}/ir_stats.tsv",
 
-                )
 
 use rule jg_gramtools_genotype from joint_geno with:
     input:
@@ -66,47 +84,55 @@ use rule jg_gramtools_genotype from joint_geno with:
         vcf=f"{output_gram_joint_geno}/{{sample_name}}/final.vcf.gz",
         jvcf=f"{output_gram_joint_geno}/{{sample_name}}/final.json",
     params:
-        geno_dir=f"{output_gram_joint_geno}/{{sample_name}}/genotyped"
+        geno_dir=f"{output_gram_joint_geno}/{{sample_name}}/genotyped",
+
 
 # This rule can produce induced references for multiple different tools
 use rule cv_map_to_induced_ref from call_variants with:
     input:
         ref_genome=ct_get_ref_genome,
         vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
-        reads=ct_get_reads
+        reads=ct_get_reads,
     output:
-        induced_ref =f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz", 
-        induced_bam =f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam", 
+        induced_ref=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz",
+        induced_bam=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam",
     params:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
+
 
 rule ct_translate_bed:
     input:
         translation_ref=ct_get_ref_genome,
         translation_vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
         translation_bed=ct_get_translation_bed,
+        translation_bed_for_eval=ct_get_translation_bed_for_eval,
     output:
         translated_bed=f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+        translated_bed_for_eval=f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_for_eval_induced.bed",
     params:
         script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
     shell:
         """
         python3 {params.script_bed_translate} {input.translation_bed} {input.translation_ref} {input.translation_vcf} {output.translated_bed}
+        python3 {params.script_bed_translate} {input.translation_bed_for_eval} {input.translation_ref} {input.translation_vcf} {output.translated_bed_for_eval}
         """
+
 
 use rule cv_run_octopus from call_variants with:
     input:
         ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
-        mapped_reads=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref_mapped.bam", 
+        mapped_reads=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref_mapped.bam",
     output:
-        vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz"
+        vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz",
+
 
 use rule cv_run_cortex from call_variants with:
     input:
         ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
         reads=ct_get_reads,
     output:
-        vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz"
+        vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz",
+
 
 use rule cv_gramtools_adjudicate from call_variants with:
     input:
@@ -119,14 +145,49 @@ use rule cv_gramtools_adjudicate from call_variants with:
         build_rep=f"{output_gram_adju}/{{sample_name}}/build_report.json",
         geno_rep=f"{output_gram_adju}/{{sample_name}}/genotype_report.json",
 
+
 use rule cv_run_gapfiller from call_variants with:
     input:
-        induced_bam =f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam", 
-        induced_ref =f"{output_gram_adju}/{{sample_name}}/induced_ref.fa.gz", 
-        pre_induced_ref=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz", 
-        pre_induced_vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz", 
-        bed_regions_to_call_in = f"{output_gram_adju}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed"
+        induced_bam=f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam",
+        induced_ref=f"{output_gram_adju}/{{sample_name}}/induced_ref.fa.gz",
+        pre_induced_ref=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
+        pre_induced_vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz",
+        bed_regions_to_call_in=f"{output_gram_adju}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
     output:
-        gapfiller_vcf = f"{output_gapfiller}/{{sample_name}}/final.vcf.gz",
-        gapfiller_vcf_rebased = f"{output_gapfiller}/{{sample_name}}/final_rebased.vcf.gz",
-        mapped_contig_bam = f"{output_gapfiller}/{{sample_name}}/mapped_contigs.bam", 
+        gapfiller_vcf=f"{output_gapfiller}/{{sample_name}}/final.vcf.gz",
+        gapfiller_vcf_rebased=f"{output_gapfiller}/{{sample_name}}/final_rebased.vcf.gz",
+        mapped_contig_bam=f"{output_gapfiller}/{{sample_name}}/mapped_contigs.bam",
+
+rule ct_induced_ref_get_stats:
+    """
+    Similar rule as in eval_varcalls workflow, but simpler
+    """
+    input:
+        bed_to_translate=ct_get_translation_bed_for_eval,
+        ref_to_translate=ct_get_ref_genome,
+        bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
+        induced_ref=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz",
+        vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
+        induced_bam=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam",
+    output:
+        f"{output_ir_stats_per_sample}/{{tool}}_{{sample_name}}.tsv",
+    params:
+        script_get_stats=f'{config["scripts"]}/eval_varcalls/get_induced_ref_stats.py',
+    shell:
+        """
+        bcftools index -f {input.vcf}
+        python3 {params.script_get_stats} {input.bed_to_translate} {input.ref_to_translate} {input.induced_ref} {input.vcf} {input.induced_bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}
+        """
+
+rule ct_get_all_ir_stats:
+    input:
+        ct_get_expected_ir_stats,
+    output:
+        f"{output_ir_stats}/ir_stats.tsv",
+    params:
+        script_get_stats=f'{config["scripts"]}/eval_varcalls/get_induced_ref_stats.py',
+    shell:
+        """
+        python3 {params.script_get_stats} --header_only > {output}
+        cat {output_ir_stats_per_sample}/*.tsv >> {output}
+        """

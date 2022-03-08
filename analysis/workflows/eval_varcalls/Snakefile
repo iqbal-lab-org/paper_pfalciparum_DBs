@@ -32,7 +32,7 @@ cu_mk_output_dirs(dir())
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 def ev_get_evaluation_bed(wildcards):
-    return config["ev_bed_files"][wildcards.gene_list_name]
+    return config["eval_bed_files"][wildcards.gene_list_name]
 
 def ev_get_var_bed(wildcards):
     if wildcards.tool == "gapfiller":
