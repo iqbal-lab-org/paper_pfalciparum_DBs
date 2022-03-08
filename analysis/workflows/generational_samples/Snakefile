@@ -5,7 +5,7 @@ Steps:
     * Run my variant calling pipeline on top of that: octopus/cortex, adjudicate, gapfiller
 Re-uses the rules in other workflows, imported as modules, to do so
 """
-WORKFLOW = "clone_trees"
+WORKFLOW = "generational_samples"
 
 
 configfile: "analysis/configs/common.yaml"
@@ -48,7 +48,13 @@ include: "utils.py"
 
 clone_tree_samples = [
     elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])
-]
+    ]
+
+crosses_samples = [
+    elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])
+    ]
+
+DATASET_NAMES = ["clone_trees","crosses"]
 
 #### Modules ###
 config["min_match_len"] = None
@@ -76,52 +82,60 @@ wildcard_constraints:
 
 rule all:
     input:
-        #eval_stats=f"{output_ir_stats}/ir_stats.tsv",
-        translated_beds=expand(f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+        eval_stats=expand(
+                f"{output_ir_stats}/{{dataset_name}}/ir_stats.tsv",
+                dataset_name=DATASET_NAMES
+                ),
+        translated_beds=expand(
+                f"{output_base}/{{tool}}/clone_trees/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
                 tool=ALL_TOOLS,
                 sample_name=clone_tree_samples
+                ) + expand(
+                f"{output_base}/{{tool}}/crosses/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+                tool=ALL_TOOLS,
+                sample_name=crosses_samples
                 ),
         # below will fail to run if above has not been already produced.
-        gene_seqs=expand(
-                f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
-                tool = ALL_TOOLS,
-                gene = GENES_TO_INDUCE
-                )
+        #gene_seqs=expand(
+        #        f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
+        #        tool = ALL_TOOLS,
+        #        gene = GENES_TO_INDUCE
+        #        )
 
 
 use rule jg_gramtools_genotype from joint_geno with:
     input:
         gram_build=input_gram_build,
-        reads=ct_get_reads,
+        reads=cu_get_reads,
     output:
-        vcf=f"{output_gram_joint_geno}/{{sample_name}}/final.vcf.gz",
-        jvcf=f"{output_gram_joint_geno}/{{sample_name}}/final.json",
+        vcf=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        jvcf=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/final.json",
     params:
-        geno_dir=f"{output_gram_joint_geno}/{{sample_name}}/genotyped",
+        geno_dir=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/genotyped",
 
 
 # This rule can produce induced references for multiple different tools
 use rule cv_map_to_induced_ref from call_variants with:
     input:
-        ref_genome=ct_get_ref_genome,
-        vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
-        reads=ct_get_reads,
+        ref_genome=gs_get_ref_genome,
+        vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        reads=cu_get_reads,
     output:
-        induced_ref=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz",
-        induced_bam=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam",
+        induced_ref=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        induced_bam=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref_mapped.bam",
     params:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
 
 
-rule ct_translate_bed:
+rule gs_translate_bed:
     input:
-        translation_ref=ct_get_ref_genome,
-        translation_vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
-        translation_bed=ct_get_translation_bed,
-        translation_bed_for_eval=ct_get_translation_bed_for_eval,
+        translation_ref=gs_get_ref_genome,
+        translation_vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        translation_bed=gs_get_translation_bed,
+        translation_bed_for_eval=gs_get_translation_bed_for_eval,
     output:
-        translated_bed=f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
-        translated_bed_for_eval=f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_for_eval_induced.bed",
+        translated_bed=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+        translated_bed_for_eval=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_for_eval_induced.bed",
     params:
         script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
     shell:
@@ -133,59 +147,59 @@ rule ct_translate_bed:
 
 use rule cv_run_octopus from call_variants with:
     input:
-        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
-        mapped_reads=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref_mapped.bam",
+        ref_genome=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        mapped_reads=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref_mapped.bam",
     output:
-        vcf_pre_filtered=f"{output_octopus}/{{sample_name}}/pre_overlap_removed.vcf.gz",
-        vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz",
+        vcf_pre_filtered=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/pre_overlap_removed.vcf.gz",
+        vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
 
 
 use rule cv_run_cortex from call_variants with:
     input:
-        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
-        reads=ct_get_reads,
+        ref_genome=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        reads=cu_get_reads,
     output:
-        vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz",
+        vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
 
 
 use rule cv_gramtools_adjudicate from call_variants with:
     input:
-        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
-        octopus_vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz",
-        cortex_vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz",
-        reads=ct_get_reads,
+        ref_genome=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        octopus_vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        reads=cu_get_reads,
     output:
-        vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz",
-        build_rep=f"{output_gram_adju}/{{sample_name}}/build_report.json",
-        geno_rep=f"{output_gram_adju}/{{sample_name}}/genotype_report.json",
+        vcf=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        build_rep=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/build_report.json",
+        geno_rep=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/genotype_report.json",
 
 
 use rule cv_run_gapfiller from call_variants with:
     input:
-        induced_bam=f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam",
-        induced_ref=f"{output_gram_adju}/{{sample_name}}/induced_ref.fa.gz",
-        pre_induced_ref=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
-        pre_induced_vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz",
-        bed_regions_to_call_in=f"{output_gram_adju}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+        induced_bam=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/induced_ref_mapped.bam",
+        induced_ref=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        pre_induced_ref=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        pre_induced_vcf=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        bed_regions_to_call_in=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
     output:
-        gapfiller_vcf=f"{output_gapfiller}/{{sample_name}}/final.vcf.gz",
-        gapfiller_vcf_rebased=f"{output_gapfiller}/{{sample_name}}/final_rebased.vcf.gz",
-        mapped_contig_bam=f"{output_gapfiller}/{{sample_name}}/mapped_contigs.bam",
+        gapfiller_vcf=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        gapfiller_vcf_rebased=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/final_rebased.vcf.gz",
+        mapped_contig_bam=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/mapped_contigs.bam",
 
 
-rule ct_induced_ref_get_stats:
+rule gs_induced_ref_get_stats:
     """
     Similar rule as in eval_varcalls workflow, but simpler
     """
     input:
-        bed_to_translate=ct_get_translation_bed_for_eval,
-        ref_to_translate=ct_get_ref_genome,
+        bed_to_translate=gs_get_translation_bed_for_eval,
+        ref_to_translate=gs_get_ref_genome,
         bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
-        induced_ref=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz",
-        vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
-        induced_bam=f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam",
+        induced_ref=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        induced_bam=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref_mapped.bam",
     output:
-        f"{output_ir_stats_per_sample}/{{tool}}_{{sample_name}}.tsv",
+        f"{output_ir_stats_per_sample}/{{dataset_name}}/{{tool}}_{{sample_name}}.tsv",
     params:
         script_get_stats=f'{config["scripts"]}/eval_varcalls/get_induced_ref_stats.py',
     shell:
@@ -194,11 +208,11 @@ rule ct_induced_ref_get_stats:
         python3 {params.script_get_stats} {input.bed_to_translate} {input.ref_to_translate} {input.induced_ref} {input.vcf} {input.induced_bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}
         """
 
-rule ct_get_all_ir_stats:
+rule gs_get_all_ir_stats:
     input:
-        ct_get_expected_ir_stats,
+        gs_get_expected_ir_stats,
     output:
-        f"{output_ir_stats}/ir_stats.tsv",
+        f"{output_ir_stats}/{{dataset_name}}/ir_stats.tsv",
     params:
         script_get_stats=f'{config["scripts"]}/eval_varcalls/get_induced_ref_stats.py',
     shell:
@@ -208,13 +222,13 @@ rule ct_get_all_ir_stats:
         """
 
 
-rule ct_get_induced_gene_seqs:
+rule gs_get_induced_gene_seqs:
     """
     This rule has no specified inputs because snakemake too slow to compute them. Its required inputs are all created in process of making ir_stats.tsv; thus that has to have been made first.
     """
     output:
         expand(
-                f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
+                f"{output_gene_seqs}/{{tool}}/{{dataset_name}}/{{gene}}.fa",
                 gene=GENES_TO_INDUCE,
                 allow_missing=True
                 )

@@ -150,12 +150,14 @@ rule cv_run_cortex:
         "shallow"
     params:
         cortex_script=f'{config["scripts"]}/{WORKFLOW}/run_cortex.py',
+        vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
     shell:
         """
         gzip -dc {input.ref_genome} > ref.fa # Cortex cannot run on gzipped reference
         python3 {params.cortex_script} ref.fa '{input.reads}' out.vcf {wildcards.sample_name}
         bgzip out.vcf
-        bcftools view -f PASS out.vcf.gz | bcftools norm -c x -f {input.ref_genome} -Oz > {output}
+        bcftools view -f PASS out.vcf.gz | bcftools norm -c x -f {input.ref_genome} -Oz > out_filtered.vcf.gz
+        python3 {params.vcf_overlap_remover} out_filtered.vcf.gz {output}
         """
 
 
