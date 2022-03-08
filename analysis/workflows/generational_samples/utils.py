@@ -47,3 +47,11 @@ def gs_get_expected_ir_stats(wildcards):
             )
     else:
         raise ValueError(f"Unsupported dataset")
+
+def gs_get_samples(wildcards):
+    if wildcards.dataset_name == "clone_trees":
+        return clone_tree_samples
+    elif wildcards.dataset_name == "crosses":
+        return crosses_samples
+    else:
+        raise ValueError("Unsupported dataset")

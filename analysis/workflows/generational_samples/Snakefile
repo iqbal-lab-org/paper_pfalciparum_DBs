@@ -56,6 +56,7 @@ crosses_samples = [
 
 DATASET_NAMES = ["clone_trees","crosses"]
 
+
 #### Modules ###
 config["min_match_len"] = None
 config["kmer_size"] = None
@@ -97,7 +98,7 @@ rule all:
                 ),
         # below will fail to run if above has not been already produced.
         #gene_seqs=expand(
-        #        f"{output_gene_seqs}/{{dataset_name}}/{{tool}}/{{gene}}.fa",
+        #        f"{output_gene_seqs}/{{tool}}/{{dataset_name}}/{{gene}}.fa",
         #        dataset_name = DATASET_NAMES,
         #        tool = ALL_TOOLS,
         #        gene = GENES_TO_INDUCE
@@ -234,20 +235,19 @@ rule gs_get_induced_gene_seqs:
                 allow_missing=True
                 )
     params:
-        output_base=output_base,
+        input_tool_dir=f"{output_base}/{{tool}}/{{dataset_name}}",
         bed_name=f"{GENE_LIST_NAME}_induced.bed",
-        samples=clone_tree_samples,
+        samples=gs_get_samples,
         genes=GENES_TO_INDUCE,
-        output_tool_dir=f"{output_gene_seqs}/{{tool}}",
+        output_tool_dir=f"{output_gene_seqs}/{{tool}}/{{dataset_name}}",
 
     shell:
         """
         mkdir -p {params.output_tool_dir}
-        input_tool_dir={params.output_base}/{wildcards.tool}
         for output_file in {output}; do > "$output_file"; done
         for sample in {params.samples}; do
-            bed_fname="${{input_tool_dir}}/${{sample}}/{params.bed_name}"
-            ref_fname="${{input_tool_dir}}/${{sample}}/induced_ref.fa.gz"
+            bed_fname="{params.input_tool_dir}/${{sample}}/{params.bed_name}"
+            ref_fname="{params.input_tool_dir}/${{sample}}/induced_ref.fa.gz"
             IFS="\n"; for gene_line in $(cat "$bed_fname")
             do
                 IFS="\t"; elems=($gene_line)    
