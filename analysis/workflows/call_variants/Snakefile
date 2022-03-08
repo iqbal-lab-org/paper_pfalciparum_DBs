@@ -120,7 +120,10 @@ rule cv_run_octopus:
         ref_genome=cu_get_ref_genome,
         mapped_reads=f"{output_mapped_reads_original}/{{dataset_name}}/{{sample_name}}/mapped.bam"
     output:
-        f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
+        vcf_pre_filtered=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus_pre_overlap_removed.vcf.gz",
+        vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
+    params:
+        vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
     threads: 4
     shadow:
         "shallow"
@@ -131,7 +134,8 @@ rule cv_run_octopus:
         mkdir -p $(dirname {output})
         gzip -dc {input.ref_genome} > ref_genome.fa
         samtools faidx ref_genome.fa
-        octopus -R ref_genome.fa -I {input.mapped_reads} --threads {threads} --organism-ploidy 1 -o {output}
+        octopus -R ref_genome.fa -I {input.mapped_reads} --threads {threads} --organism-ploidy 1 -o {output.vcf_pre_filtered}
+        python3 {params.vcf_overlap_remover} {output.vcf_pre_filtered} {output.vcf}
         """
 
 rule cv_run_cortex:

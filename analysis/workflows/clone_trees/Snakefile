@@ -32,11 +32,14 @@ output_gram_adju = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
 output_gapfiller = output_base / "gapfiller"
 output_ir_stats = output_base / "ir_stats"
 output_ir_stats_per_sample = output_ir_stats / "per_sample"
-output_ir_stats_per_sample.mkdir(exist_ok=True,parents=True)
+output_gene_seqs = output_base / "induced_gene_seqs"
+cu_mk_output_dirs(dir())
 
 GENE_LIST_NAME = "pf6_26_genes"
 GENE_BED = f'{config["gene_bed_dir"]}/{GENE_LIST_NAME}.bed'
 GENE_BED_FOR_EVAL = config["eval_bed_files"][GENE_LIST_NAME]
+GENES_TO_INDUCE = cu_load_bed(GENE_LIST_NAME)
+ALL_TOOLS = [gram_joint_geno_path,"cortex","octopus",f"gram_adju_{GMTOOLS_COMMIT}","gapfiller"]
 
 
 # This has to appear after output_ definitions and common_utils.py inclusion
@@ -73,7 +76,17 @@ wildcard_constraints:
 
 rule all:
     input:
-        f"{output_ir_stats}/ir_stats.tsv",
+        #eval_stats=f"{output_ir_stats}/ir_stats.tsv",
+        translated_beds=expand(f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+                tool=ALL_TOOLS,
+                sample_name=clone_tree_samples
+                ),
+        # below will fail to run if above has not been already produced.
+        gene_seqs=expand(
+                f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
+                tool = ALL_TOOLS,
+                gene = GENES_TO_INDUCE
+                )
 
 
 use rule jg_gramtools_genotype from joint_geno with:
@@ -123,6 +136,7 @@ use rule cv_run_octopus from call_variants with:
         ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
         mapped_reads=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref_mapped.bam",
     output:
+        vcf_pre_filtered=f"{output_octopus}/{{sample_name}}/pre_overlap_removed.vcf.gz",
         vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz",
 
 
@@ -158,6 +172,7 @@ use rule cv_run_gapfiller from call_variants with:
         gapfiller_vcf_rebased=f"{output_gapfiller}/{{sample_name}}/final_rebased.vcf.gz",
         mapped_contig_bam=f"{output_gapfiller}/{{sample_name}}/mapped_contigs.bam",
 
+
 rule ct_induced_ref_get_stats:
     """
     Similar rule as in eval_varcalls workflow, but simpler
@@ -190,4 +205,43 @@ rule ct_get_all_ir_stats:
         """
         python3 {params.script_get_stats} --header_only > {output}
         cat {output_ir_stats_per_sample}/*.tsv >> {output}
+        """
+
+
+rule ct_get_induced_gene_seqs:
+    """
+    This rule has no specified inputs because snakemake too slow to compute them. Its required inputs are all created in process of making ir_stats.tsv; thus that has to have been made first.
+    """
+    output:
+        expand(
+                f"{output_gene_seqs}/{{tool}}/{{gene}}.fa",
+                gene=GENES_TO_INDUCE,
+                allow_missing=True
+                )
+    params:
+        output_base=output_base,
+        bed_name=f"{GENE_LIST_NAME}_induced.bed",
+        samples=clone_tree_samples,
+        genes=GENES_TO_INDUCE,
+        output_tool_dir=f"{output_gene_seqs}/{{tool}}",
+
+    shell:
+        """
+        mkdir -p {params.output_tool_dir}
+        input_tool_dir={params.output_base}/{wildcards.tool}
+        for output_file in {output}; do > "$output_file"; done
+        for sample in {params.samples}; do
+            bed_fname="${{input_tool_dir}}/${{sample}}/{params.bed_name}"
+            ref_fname="${{input_tool_dir}}/${{sample}}/induced_ref.fa.gz"
+            IFS="\n"; for gene_line in $(cat "$bed_fname")
+            do
+                IFS="\t"; elems=($gene_line)    
+                adj_start=$((${{elems[1]}} + 1))
+                reg="${{elems[0]}}:${{adj_start}}-${{elems[2]}}"
+                gene_name=${{elems[3]}}
+                new_name="${{gene_name}}_${{sample}}"
+                samtools faidx "$ref_fname" $reg |
+                    sed 's/>.*/>'"$new_name"'/' >> {params.output_tool_dir}/"${{gene_name}}.fa"
+            done
+        done
         """
