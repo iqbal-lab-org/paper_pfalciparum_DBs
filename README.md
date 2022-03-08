@@ -126,12 +126,19 @@ On that basis it is fine to use 2018-11 version for evaluation purposes (see eva
 
 ## pf6
 
-Some samples are duplicates with low coverage, estimated to be non-clonal (via Fws), 'continent mismatches'
+Some samples are duplicates with low coverage, estimated to be mixed species, 'continent mismatches'
 (labeled from a continent but their genotypic data maps them to another); these are marked as not 'Analysis_set' in the
 'Exclusion reason' column. 
 
-We build graphs from and genotype only 'Analysis_set' samples.
+Further, some samples are mixed within-species infections. An estimate of clonality is
+given by Fws- malariaGEN typically use >0.95 as threshold for clonality.
 
+We build graphs from and genotype only 'Analysis_set' and fws>0.95 samples.
+To get these, inside `analysis/input_data/sample_lists/pf6`:
+```sh
+grep -f <(awk '{if ($2 > 0.95){print "^"$1}}' Pf_6_fws.tsv) pf6_samples.tsv | grep "Analysis_set" | cat <(head -n1 pf6_samples.tsv) - > analysis_set_fws95.tsv
+```
+Note the code in `analysis/workflows/common_utils` also derives this (and other) sample subsets.
 
 # Genes
 
