@@ -103,7 +103,7 @@ rule dd_subsample_reads:
             f"{output_base}/{{dataset_name}}/{{sample_name}}/reads_2.subsampled.fastq.gz"
         ),
     params:
-        genome_size=lambda wildcards: get_genome_size(wildcards.dataset_name),
+        genome_size=lambda wildcards: cu_get_genome_size(wildcards.dataset_name),
         max_coverage=config["subsampling_maxcov"],
     container:
         config["container_gramtools"]
@@ -124,7 +124,7 @@ rule dd_trim_reads:
     container:
         config["container_gramtools"]
     resources:
-        mem_mb=10000,
+        mem_mb=15000,
     shell:
         "java -jar /software/Trimmomatic-0.36/trimmomatic-0.36.jar PE -threads {threads} -phred33 {input.ir1} {input.ir2} {output.or1} /dev/null {output.or2} /dev/null ILLUMINACLIP:/software/Trimmomatic-0.36/adapters/TruSeq3-PE-2.fa:2:30:10 LEADING:10 TRAILING:10 SLIDINGWINDOW:4:15 MINLEN:50"
 

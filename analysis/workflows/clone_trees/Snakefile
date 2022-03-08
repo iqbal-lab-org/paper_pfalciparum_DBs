@@ -1,0 +1,98 @@
+"""
+Workflow to genotype the clone tree samples
+Steps:
+    * Run gramtools genotyping on the pf6 graph
+    * Run my variant calling pipeline on top of that: octopus/cortex, adjudicate, gapfiller
+Re-uses the rules in other workflows, as modules to do so
+"""
+WORKFLOW = "clone_trees"
+
+configfile: "analysis/configs/common.yaml"
+#configfile: f"analysis/configs/{WORKFLOW}.yaml"
+
+include: "../common_utils.py"
+
+
+GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
+# Input: gramtools pf6 graph
+gram_joint_geno_params = "pf6__analysis_set_fws95__gapfiller__pf6_26_genes_mml7_k13"
+input_gram_build=f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/" + "/".join(gram_joint_geno_params.split("__")) + "/kmers_stats"
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+gram_joint_geno_path = f"gram_jointgeno_{GMTOOLS_COMMIT}__{gram_joint_geno_params}"
+output_gram_joint_geno = output_base / gram_joint_geno_path
+output_octopus = output_base / "octopus"
+output_cortex = output_base / "cortex"
+output_gram_adju = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
+
+# This has to appear after output_ definitions and common_utils.py inclusion
+include: "utils.py"
+
+clone_tree_samples = [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])]
+
+#### Modules ###
+config["min_match_len"] = None
+config["kmer_size"] = None
+module joint_geno:
+    snakefile: "../joint_genotyping/Snakefile"
+    config: config
+
+module call_variants:
+    snakefile: "../call_variants/Snakefile"
+    config: config
+
+
+rule all:
+    input:
+        results = expand(
+            f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam", sample_name =clone_tree_samples[:2]
+                )
+
+use rule jg_gramtools_genotype from joint_geno with:
+    input:
+        gram_build=input_gram_build,
+        reads=ct_get_reads,
+    output:
+        vcf=f"{output_gram_joint_geno}/{{sample_name}}/final.vcf.gz",
+        jvcf=f"{output_gram_joint_geno}/{{sample_name}}/final.json",
+    params:
+        geno_dir=f"{output_gram_joint_geno}/{{sample_name}}/genotyped"
+
+# This rule can produce induced references for multiple different tools
+use rule cv_map_to_induced_ref from call_variants with:
+    input:
+        ref_genome=ct_get_ref_genome,
+        vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
+        reads=ct_get_reads
+    output:
+        induced_ref =f"{output_base}/{{tool}}/{{sample_name}}/induced_ref.fa.gz", 
+        induced_bam =f"{output_base}/{{tool}}/{{sample_name}}/induced_ref_mapped.bam", 
+    params:
+        script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
+
+
+use rule cv_run_octopus from call_variants with:
+    input:
+        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
+        mapped_reads=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref_mapped.bam", 
+    output:
+        vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz"
+
+use rule cv_run_cortex from call_variants with:
+    input:
+        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
+        reads=ct_get_reads,
+    output:
+        vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz"
+
+use rule cv_gramtools_adjudicate from call_variants with:
+    input:
+        ref_genome=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz",
+        octopus_vcf=f"{output_octopus}/{{sample_name}}/final.vcf.gz",
+        cortex_vcf=f"{output_cortex}/{{sample_name}}/final.vcf.gz",
+        reads=ct_get_reads,
+    output:
+        vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz",
+        build_rep=f"{output_gram_adju}/{{sample_name}}/build_report.json",
+        geno_rep=f"{output_gram_adju}/{{sample_name}}/genotype_report.json",
+

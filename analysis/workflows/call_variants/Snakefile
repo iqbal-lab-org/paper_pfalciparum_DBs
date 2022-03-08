@@ -103,7 +103,7 @@ rule cv_run_samtools:
         idx_prefix=(
             lambda wildcards: f"{output_ref_genomes}/{ds_to_ref[wildcards.dataset_name]}/ref"
         ),
-        mapped_reads=rules.cv_bwa_map_reads.output,
+        mapped_reads=f"{output_mapped_reads_original}/{{dataset_name}}/{{sample_name}}/mapped.bam"
     output:
         f"{output_samtools}/{{dataset_name}}/{{sample_name}}/samtools.vcf.gz",
     threads: 4
@@ -120,7 +120,7 @@ rule cv_run_samtools:
 rule cv_run_octopus:
     input:
         ref_genome=cu_get_ref_genome,
-        mapped_reads=rules.cv_bwa_map_reads.output,
+        mapped_reads=f"{output_mapped_reads_original}/{{dataset_name}}/{{sample_name}}/mapped.bam"
     output:
         f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
     threads: 4
@@ -194,7 +194,7 @@ rule cv_gramtools_adjudicate:
 rule cv_map_to_induced_ref:
     input:
         ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
-        adju_vcf = rules.cv_gramtools_adjudicate.output.vcf,
+        vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         reads=cu_get_reads,
     output:
         induced_bam = f"{output_mapped_reads_induced}/{{dataset_name}}/{{sample_name}}/mapped.bam",
@@ -207,11 +207,11 @@ rule cv_map_to_induced_ref:
     shell:
         """
         mkdir -p $(dirname {output.induced_ref})
-        cp {input.adju_vcf} adju.vcf.gz
+        cp {input.vcf} adju.vcf.gz
         bcftools index adju.vcf.gz
         bgzip -dc {input.ref_genome} | bcftools consensus -s {wildcards.sample_name} adju.vcf.gz > induced_ref.fa
         bwa index induced_ref.fa
-        bwa mem -t {threads} induced_ref.fa {input.reads} > mapped.sam
+        bwa mem -t {threads} -R "@RG\\tID:1\\tSM:{wildcards.sample_name}" induced_ref.fa {input.reads} > mapped.sam
         samtools sort -o {output.induced_bam} -O BAM mapped.sam
         samtools index {output.induced_bam}
         bgzip -c induced_ref.fa > {output.induced_ref}
@@ -221,7 +221,7 @@ rule cv_run_gapfiller:
     input:
         induced_bam = rules.cv_map_to_induced_ref.output.induced_bam,
         induced_ref = rules.cv_map_to_induced_ref.output.induced_ref,
-        adju_vcf = rules.cv_gramtools_adjudicate.output.vcf,
+        adju_vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         target_bed = GENE_BED,
         ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
     output:
