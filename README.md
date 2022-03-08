@@ -140,6 +140,24 @@ grep -f <(awk '{if ($2 > 0.95){print "^"$1}}' Pf_6_fws.tsv) pf6_samples.tsv | gr
 ```
 Note the code in `analysis/workflows/common_utils` also derives this (and other) sample subsets.
 
+## Generational datasets
+
+This includes clone trees from Claessens et al (2014) and crosses datasets, from Miles
+et al. (2016) and Garimella et al. (2020)
+
+The crosses input tsv is produced from the input txt files of each paper as follows:
+* Miles et al. (2016) table: ftp://ngs.sanger.ac.uk/production/malaria/pf-crosses/1.0/samples.txt, which I call `miles_etal_crosses.txt`
+* Garimella et al. (2020) table: https://github.com/mcveanlab/Corticall/raw/master/manuscript/manifest.illumina.txt which I call `garimella_etal_crosses.txt`
+
+```sh
+echo -e "Sample\tCross\tClone\tAccession" > crosses.tsv
+awk -F'\t' '{print $3"\t"$1"\t"$2"\t"$4}' miles_etal_crosses.txt | tail -n+2 >> crosses.tsv
+awk -F'\t' '{print $2"\t"$1"\t"$3"\t"$4}' garimella_etal_crosses.txt | grep "803xGB4" | sed s/803xGB4/803_gb4/ >> crosses.tsv
+```
+
+Column `Clone` allows identifying the parent samples for each cross. All accessions are 
+run IDs, but all samples were sequenced in single run (as per Miles et al. (2016) supplementary)
+
 # Genes
 
 ## P. falciparum
