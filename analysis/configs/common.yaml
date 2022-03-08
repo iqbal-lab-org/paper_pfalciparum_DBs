@@ -25,3 +25,7 @@ clone_tree_tsv: "analysis/input_data/sample_lists/clone_trees/clone_trees.tsv"
 
 ## Bed files
 pf3d7_2018_11_core_regions: "analysis/input_data/pf3d7_2018_11_regions_in_core.bed"
+
+## Variant calling params
+gapfiller_insert_size_mean: 600
+gapfiller_insert_size_stdv: 1000

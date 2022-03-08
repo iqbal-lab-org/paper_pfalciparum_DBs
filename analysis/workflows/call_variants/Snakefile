@@ -25,8 +25,6 @@ ds_to_ref = {
 }
 
 GENE_BED = f'{config["gene_bed_dir"]}/pf6_26_genes.bed'
-INSERT_SIZE_MEAN = 600
-INSERT_SIZE_STDV = 1000
 
 GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
@@ -217,32 +215,43 @@ rule cv_map_to_induced_ref:
         bgzip -c induced_ref.fa > {output.induced_ref}
         """
 
+rule cv_translate_bed_for_gapfiller:
+    input:
+        translation_ref=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
+        translation_vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        translation_bed = GENE_BED,
+    output:
+        translated_bed = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_features.bed",
+    params:
+        script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
+    shell:
+        """
+        python3 {params.script_bed_translate} {input.translation_bed} {input.translation_ref} {input.translation_vcf} {output.translated_bed}
+        """
+
 rule cv_run_gapfiller:
     input:
         induced_bam = rules.cv_map_to_induced_ref.output.induced_bam,
         induced_ref = rules.cv_map_to_induced_ref.output.induced_ref,
-        adju_vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
-        target_bed = GENE_BED,
-        ref_genome=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
+        pre_induced_ref=lambda wildcards: f'{config["dl_output_dir"]}/ref_genomes/' + ds_to_ref[wildcards.dataset_name] + ".genome.fasta.gz",
+        pre_induced_vcf=f"{output_gramtools}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+        bed_regions_to_call_in = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_features.bed"
     output:
         gapfiller_vcf = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/gapfiller.vcf.gz",
         gapfiller_vcf_rebased = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/gapfiller_rebased.vcf.gz",
-        translated_bed = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_features.bed",
         mapped_contig_bam = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/mapped_contigs.bam", 
     shadow:
         "shallow"
     resources:
         mem_mb=4000,
     params:
-        script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
         script_rebase=f'{config["scripts"]}/{WORKFLOW}/rebase_calls.py',
-        INSERT_SIZE_MEAN = INSERT_SIZE_MEAN,
-        INSERT_SIZE_STDV = INSERT_SIZE_STDV
+        INSERT_SIZE_MEAN = config["gapfiller_insert_size_mean"],
+        INSERT_SIZE_STDV = config["gapfiller_insert_size_stdv"]
     shell:
         """
-        python3 {params.script_bed_translate} {input.target_bed} {input.ref_genome} {input.adju_vcf} {output.translated_bed}
         samtools view -G 2 {input.induced_bam} > not_properly_aligned.sam
-        IFS="\n"; for gene_line in $(cat {output.translated_bed})
+        IFS="\n"; for gene_line in $(cat {input.bed_regions_to_call_in})
         do
             IFS="\t"; elems=($gene_line)
             adjusted_start=$((${{elems[1]}} + 1))
@@ -259,11 +268,11 @@ rule cv_run_gapfiller:
         samtools faidx induced_ref.fa
         octopus -I {output.mapped_contig_bam} -R induced_ref.fa --organism-ploidy 1 --assemble-all -o gapfiller.vcf
         bgzip gapfiller.vcf && bcftools index gapfiller.vcf.gz 
-        bcftools filter -o {output.gapfiller_vcf} -Oz -R {output.translated_bed} -i 'FORMAT/DP > 2 & FILTER="PASS"' gapfiller.vcf.gz
-        python3 {params.script_rebase} {output.gapfiller_vcf} {input.induced_ref} {input.adju_vcf} gapfiller_rebased.vcf 
+        bcftools filter -o {output.gapfiller_vcf} -Oz -R {input.bed_regions_to_call_in} -i 'FORMAT/DP > 2 & FILTER="PASS"' gapfiller.vcf.gz
+        python3 {params.script_rebase} {output.gapfiller_vcf} {input.induced_ref} {input.pre_induced_vcf} gapfiller_rebased.vcf 
         bgzip -c gapfiller_rebased.vcf > {output.gapfiller_vcf_rebased}
         # Check the rebased variants are consistent with the original reference; errors (return code != 0) if not
         bcftools index {output.gapfiller_vcf_rebased}
-        bcftools consensus -f {input.ref_genome} {output.gapfiller_vcf_rebased} > /dev/null
+        bcftools consensus -f {input.pre_induced_ref} {output.gapfiller_vcf_rebased} > /dev/null
         """
     

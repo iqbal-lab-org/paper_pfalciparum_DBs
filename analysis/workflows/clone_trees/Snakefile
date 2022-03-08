@@ -15,15 +15,19 @@ include: "../common_utils.py"
 
 GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 # Input: gramtools pf6 graph
-gram_joint_geno_params = "pf6__analysis_set_fws95__gapfiller__pf6_26_genes_mml7_k13"
-input_gram_build=f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/" + "/".join(gram_joint_geno_params.split("__")) + "/kmers_stats"
+GRAM_JOINT_GENO_PARAMS = "pf6__analysis_set_fws95__gapfiller__pf6_26_genes_mml7_k13"
+input_gram_build=f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/" + "/".join(GRAM_JOINT_GENO_PARAMS.split("__")) + "/kmers_stats"
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
-gram_joint_geno_path = f"gram_jointgeno_{GMTOOLS_COMMIT}__{gram_joint_geno_params}"
+gram_joint_geno_path = f"gram_jointgeno_{GMTOOLS_COMMIT}__{GRAM_JOINT_GENO_PARAMS}"
 output_gram_joint_geno = output_base / gram_joint_geno_path
 output_octopus = output_base / "octopus"
 output_cortex = output_base / "cortex"
 output_gram_adju = output_base / f"gram_adju_{GMTOOLS_COMMIT}"
+output_gapfiller = output_base / "gapfiller"
+
+GENE_LIST_NAME = "pf6_26_genes"
+GENE_BED = f'{config["gene_bed_dir"]}/{GENE_LIST_NAME}.bed'
 
 # This has to appear after output_ definitions and common_utils.py inclusion
 include: "utils.py"
@@ -41,11 +45,17 @@ module call_variants:
     snakefile: "../call_variants/Snakefile"
     config: config
 
+wildcard_constraints:
+    sample_name="[^/]+",
+    tool="[^/]+",
 
 rule all:
     input:
-        results = expand(
-            f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam", sample_name =clone_tree_samples[:2]
+        gapfiller_results = expand(
+            f"{output_gapfiller}/{{sample_name}}/{{output_file}}", 
+            sample_name =clone_tree_samples[:2],
+            output_file = ["induced_ref_mapped.bam",f"{GENE_LIST_NAME}_induced.bed"]
+
                 )
 
 use rule jg_gramtools_genotype from joint_geno with:
@@ -70,6 +80,19 @@ use rule cv_map_to_induced_ref from call_variants with:
     params:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
 
+rule ct_translate_bed:
+    input:
+        translation_ref=ct_get_ref_genome,
+        translation_vcf=f"{output_base}/{{tool}}/{{sample_name}}/final.vcf.gz",
+        translation_bed=ct_get_translation_bed,
+    output:
+        translated_bed=f"{output_base}/{{tool}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+    params:
+        script_bed_translate=f'{config["scripts"]}/common_utils/shift_to_induced_genome_coords.py',
+    shell:
+        """
+        python3 {params.script_bed_translate} {input.translation_bed} {input.translation_ref} {input.translation_vcf} {output.translated_bed}
+        """
 
 use rule cv_run_octopus from call_variants with:
     input:
@@ -96,3 +119,14 @@ use rule cv_gramtools_adjudicate from call_variants with:
         build_rep=f"{output_gram_adju}/{{sample_name}}/build_report.json",
         geno_rep=f"{output_gram_adju}/{{sample_name}}/genotype_report.json",
 
+use rule cv_run_gapfiller from call_variants with:
+    input:
+        induced_bam =f"{output_gram_adju}/{{sample_name}}/induced_ref_mapped.bam", 
+        induced_ref =f"{output_gram_adju}/{{sample_name}}/induced_ref.fa.gz", 
+        pre_induced_ref=f"{output_gram_joint_geno}/{{sample_name}}/induced_ref.fa.gz", 
+        pre_induced_vcf=f"{output_gram_adju}/{{sample_name}}/final.vcf.gz", 
+        bed_regions_to_call_in = f"{output_gram_adju}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed"
+    output:
+        gapfiller_vcf = f"{output_gapfiller}/{{sample_name}}/final.vcf.gz",
+        gapfiller_vcf_rebased = f"{output_gapfiller}/{{sample_name}}/final_rebased.vcf.gz",
+        mapped_contig_bam = f"{output_gapfiller}/{{sample_name}}/mapped_contigs.bam", 
