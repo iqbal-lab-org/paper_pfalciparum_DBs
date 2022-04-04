@@ -41,8 +41,7 @@ datasubset_name="analysis_set_fws95"
 gene_list_name="pf6_26_genes"
 
 
-## "ref" must be prepended to sample names so that we place a ref genome slice at the beginning of the msas/prgs.
-sample_names = ["ref"] + cu_get_sample_names(dataset_name + datasubset_name, fws_threshold=95)
+sample_names = cu_get_sample_names(dataset_name + datasubset_name, fws_threshold=95)
 genes = cu_load_bed(gene_list_name)
 ##### 
 
@@ -88,59 +87,40 @@ rule mp_make_beds:
 rule mp_induce_gene_sequences:
     input:
         bed_genes=rules.mp_make_beds.output.bed_genes,
-        ref_genome=mp_get_ref_genome,
-        vcf=mp_get_one_vcf,
-        initial_ref_genome=cu_get_ref_genome,
-        initial_vcf=mp_get_initial_vcf,
+        vcfs=lambda wildcards: mp_get_sample_inducers(wildcards.dataset_name, wildcards.tool,"vcf"),
+        refs=lambda wildcards: mp_get_sample_inducers(wildcards.dataset_name, wildcards.tool,"ref_genome"),
+        initial_vcfs=lambda wildcards: mp_get_sample_inducers(wildcards.dataset_name, wildcards.tool,"initial_vcf"),
+        initial_refs=lambda wildcards: mp_get_sample_inducers(wildcards.dataset_name, wildcards.tool,"initial_ref_genome"),
     output:
         expand(
-            f"{output_base}/{{dataset_name}}/gene_portions/{{tool}}/{{sample_name}}/{{gene}}.fa",
+            f"{output_base}/{{dataset_name}}/gene_portions/{{tool}}/{{gene}}.fa",
             gene=genes,
-            allow_missing=True,
+            allow_missing=True
         ),
     params:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
         script_bed_translate=f'{config["common_scripts"]}/shift_to_induced_genome_coords.py',
+        input_sample_names=lambda wildcards: mp_get_sample_inducers(wildcards.dataset_name, wildcards.tool,"sample_name"),
     shadow:
         "shallow"
-    shell:
-        """
-        outdir=$(dirname {output[0]})
-        mkdir -p $outdir
-        sample_name="{wildcards.sample_name}"
-        if [[ "{wildcards.sample_name}" == "ref" ]]; then sample_name="sample"; fi
-        cp {input.bed_genes} bed_for_seqs.bed
-        if [[ "{wildcards.tool}" == "gapfiller" ]];then
-            python3 {params.script_bed_translate} {input.bed_genes} {input.initial_ref_genome} {input.initial_vcf} bed_for_seqs.bed
-            cp bed_for_seqs.bed ${{outdir}}/induced_features.bed
-        fi
-        bash {params.script_induce_seqs} bed_for_seqs.bed {input.vcf} {input.ref_genome} $outdir "$sample_name"
-        """
-
-
-rule mp_cat_var_portions:
-    input:
-        samples=expand(
-            f"{output_base}/{dataset_name}/gene_portions/{{tool}}/{{sample_name}}/{{gene}}.fa",
-            sample_name=sample_names,
-            allow_missing=True,
-        ),
-    output:
-        gene_seqs=f"{output_base}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/catted_genes/{{gene}}.fa",
     run:
-        # Use run, not shell, as too long list of arguments to shell script failed in snakemake v5.14.0.
-        import pathlib
-        Path(output.gene_seqs).parent.mkdir(exist_ok=True,parents=True)
-        with open(output.gene_seqs, "w") as fout:
-            for portion in input.samples:
-                with open(portion) as fin:
-                    sequence = fin.read()
-                fout.write(sequence)
+        from pathlib import Path
+        from subprocess import run as sp_run
+        from shutil import copyfile
+        outdir = Path(output[0]).resolve().parent
+        outdir.mkdir(parents=True,exist_ok=True)
+        for elem in output:
+            Path(elem).touch(exist_ok=True)
+        copyfile(input.bed_genes,"bed_for_seqs.bed")
+        for vcf, ref, initial_vcf, initial_ref, sample_name in zip(input.vcfs, input.refs, input.initial_vcfs, input.initial_refs, params.input_sample_names):
+            if wildcards.tool == "gapfiller":
+                sp_run(f"python3 {params.script_bed_translate} {input.bed_genes} {initial_ref} {initial_vcf} bed_for_seqs.bed",shell=True,check=True)
+            sp_run(f"bash {params.script_induce_seqs} bed_for_seqs.bed {vcf} {ref} {outdir} {sample_name}", shell=True, check=True)
 
 
 rule mp_make_msas:
     input:
-        rules.mp_cat_var_portions.output.gene_seqs,
+        f"{output_base}/{{dataset_name}}/gene_portions/{{tool}}/{{gene}}.fa",
     output:
         gene_msa=(
             f"{output_base}/{{dataset_name}}/{{datasubset_name}}/{{tool}}/msas/{{gene}}.msa"
@@ -152,7 +132,6 @@ rule mp_make_msas:
         mkdir -p $(dirname {output.gene_msa})
         mafft {input} > {output.gene_msa}
         """
-
 
 rule mp_make_var_prg:
     input:
