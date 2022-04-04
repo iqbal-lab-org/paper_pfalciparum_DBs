@@ -26,59 +26,49 @@ sh analysis/cluster_submit.sh
 
 ### download_data
 
-#### Requirements
-
-None
+Requirements: None
 
 #### Function
 3 main datasets:
 
   * pf6: downloads all p. falciparum read sets from malariaGEN
   * pvgv: downloads all p. vivax read sets from malariaGEN
-  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples
+  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples,
+    from [Otto et al. (2018)][otto_2018]
 
 
 ### call_variants
 
-#### Requirements
-
-download_data
+Requirements: download_data
 
 #### Function
 
-2 main operations:
-
-   * Runs cortex on all pf6 and pvgv samples
-   * Runs samtools, cortex and gramtools (adjudicating samtools and cortex calls) on pacb_ilmn_pf samples. This allows `eval_varcalls` workflow to evaluate the calls for all three tools.
+* (Variant calling) Runs cortex and octopus on all pf6, pvgv and pacb_ilmn_pf samples
+* (Genotyping) Adjudicates between cortex and octopus using gramtools
+* (Variant calling) Runs gapfiller on top of gramtools adjudicated output
 
 ### eval_varcalls
 
-#### Requirements
-
-call_variants
+Requirements: call_variants
 
 #### Function
 
 
 ### make_prgs
 
-#### Requirements 
-
-call_variants
+Requirements: call_variants
 
 #### Function
 
-* Makes a prg based on cortex calls in pf6 samples. Configurable parameters are:
+* Makes a PRG (Population Reference Graph; aka genome graph) based on end output of call_variants workflow. Configurable parameters are:
        - Which pf6 samples to use for graph construction
-       - Which genes to build the prg on
+       - Which genes to build the prg on (for e.g., set of 26 hypervariable genes I have
+         selected for study; see [Genes](#Genes) section below)
        - What `min_match_len` to use for `make_prg`
-* Makes a prg based on cortex calls in pvgv samples.
 
 ### joint_genotyping
 
-#### Requirements
-
-make_prg
+Requirements: make_prg
 
 #### Function
 
@@ -86,14 +76,12 @@ Takes as input a genome graph made by make_prg, and runs gramtools genotyping on
 
 ### plasmo_paralogs
 
-#### Requirements
-
-joint_genotyping
+Requirements: joint_genotyping
 
 #### Function
 
-Produces sequences of the paralogs to study, makes MSAs, translates to protein, makes clusters using cd-hit.
-
+Produces sequences of all the genes in the gramtools-built and genotyped PRG. So-named
+because also concatenates paralog sequences together (e.g., DBLMSP and DBLMSP2)
 
 ## Development
 
@@ -202,3 +190,4 @@ Ref genome they used: PvO1.
 
 
 [myo_1]: https://app.box.com/s/105k1utbcqskclnghhobu1c2cgpgcdmk
+[otto_2018]: https://doi.org/10.12688/wellcomeopenres.14571.1
