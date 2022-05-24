@@ -1,45 +1,47 @@
 from itertools import repeat, starmap
 
-_qc_headers = ["sample", "chrom", "start", "end", "gene","tool","metric_category","metric","value"]
-_required_qc_headers = set(_qc_headers[0:4] + _qc_headers[6:9])
 
-class QCMeasure:
+class MetricsRecorder:
+    _headers = list()
+    _required_headers = list()
+    _UNSET = "NA"
+
     def __init__(self, **fields):
         self.check_fields_are_supported(set(fields.keys()))
-        for key in _qc_headers:
+        for key in self._headers:
             if key in fields:
                 setattr(self, key, fields[key])
             else:
-                setattr(self, key, "")
+                setattr(self, key, self._UNSET)
 
     def check_fields_are_supported(self, field_names):
-        assert set(_qc_headers).issuperset(field_names), (
+        assert set(self._headers).issuperset(field_names), (
                 "One or more provided field names not in set of supported fields: "
-                f"{_qc_headers}"
+                f"{self._headers}"
                 )
 
     @classmethod
     def get_header(cls):
-        return "\t".join(_qc_headers)
+        return "\t".join(cls._headers)
 
     def get_missing_fields(self):
         result = set()
-        for required_field in _required_qc_headers:
-            if getattr(self, required_field) == "":
+        for required_field in self._required_headers:
+            if getattr(self, required_field) == self.UNSET:
                 result.add(required_field)
         return result
 
     def update(self, **fields):
         self.check_fields_are_supported(set(fields.keys()))
         for key, val in fields.items():
-            if getattr(self, key) != "":
+            if getattr(self, key) != self._UNSET:
                 raise ValueError(f"{key} is already set")
             setattr(self, key, val)
 
     def __repr__(self):
         missing_fields = self.get_missing_fields()
         assert len(missing_fields) == 0, (
-                f"Missing unset fields: {missing_fields}. Class can only be serialised with all of the following fields set: {_required_qc_headers}"
+                f"Missing unset fields: {missing_fields}. Class can only be serialised with all of the following fields set: {self._required_headers}"
             )
-        values = starmap(getattr, zip(repeat(self),_qc_headers))
+        values = starmap(getattr, zip(repeat(self),self._headers))
         return "\t".join(map(str,values))

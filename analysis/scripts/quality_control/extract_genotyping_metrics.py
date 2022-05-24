@@ -7,9 +7,12 @@ import warnings
 from pysam import VariantFile, VariantRecord
 from edlib import align as edlib_align
 
-from common_utils.qc import QCMeasure
+from common_utils.metrics import MetricsRecorder
 from common_utils.genome_region import RegionMode, GenomeRegion, genome_regions_from_bed
 
+class QCMeasure(MetricsRecorder):
+    _headers =["sample", "chrom", "start", "end", "gene","tool","metric_category","metric","value"] 
+    _required_headers = QCMeasure._headers[0:4] + QCMeasure._headers[6:9]
 
 class VCFError(Exception):
     pass
