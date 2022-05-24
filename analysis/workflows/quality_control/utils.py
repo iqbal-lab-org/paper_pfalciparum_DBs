@@ -47,14 +47,13 @@ def qc_get_expected_vcf_stats(wildcards):
 
 def qc_get_mapped_reads(wildcards):
     dataset_name = "pf6" if wildcards.dataset_name.startswith("pf6") else wildcards.dataset_name
-    return f'{config["varcall_dir"]}/mapped_reads/{dataset_name}/{wildcards.sample_name}/mapped.bam'
+    return f'{config["varcall_dir"]}/mapped_reads/original_ref/{dataset_name}/{wildcards.sample_name}/mapped.bam'
 
 def qc_get_expected_read_stats(wildcards):
     dataset_name = wildcards.dataset_name
     if wildcards.dataset_name.startswith("pf6"):
-        samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
+        samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
         dataset_name = "pf6"
-        #samples = cu_get_sample_names_fws_matching(wildcards.dataset_name)
     elif wildcards.dataset_name.startswith("pacb_ilmn_pf"):
         samples = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
     else:
