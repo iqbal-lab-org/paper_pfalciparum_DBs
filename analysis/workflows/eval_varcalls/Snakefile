@@ -8,6 +8,7 @@ Refer to utils.py to configure which tools get evaluated.
 
 WORKFLOW = "eval_varcalls"
 DL_WORKFLOW = "download_data"
+CV_WORKFLOW = "call_variants"
 
 
 configfile: "analysis/configs/common.yaml"
@@ -21,13 +22,17 @@ include: f"../{WORKFLOW}/utils.py"
 
 container: config["container_gramtools"]
 
+DS_NAME_ASSEMBLIES = "pacb_ilmn_pf"
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
-output_varifier_pf = output_base / "pacb_ilmn_pf" / "varifier"
-output_bowtie2_pf = output_base / "pacb_ilmn_pf" / "bowtie2"
+output_varifier_pf = output_base / DS_NAME_ASSEMBLIES / "varifier"
+output_bowtie2_pf = output_base / DS_NAME_ASSEMBLIES / "bowtie2"
 output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
+output_assembly_annotations = output_base / "assembly_annotations"
 cu_mk_output_dirs(dir())
+
+cv_output_gapfiller = Path(f'{config["output_dir"]}/{CV_WORKFLOW}') / "gapfiller"
 
 
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
@@ -42,6 +47,7 @@ def ev_get_var_bed(wildcards):
         return f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
 
 
+pacb_ilmn_records = [elem.sample_name for elem in cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])]
 GENE_LIST_NAME = "pf6_26_genes"
 rule all:
     input:
@@ -53,9 +59,12 @@ rule all:
         ),
         induced_ref_mapping_stats_pf6=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
-            dataset_name=["pf6","pacb_ilmn_pf"],
+            dataset_name=["pf6",DS_NAME_ASSEMBLIES]
             gene_list=config["pf6_gene_lists"],
         ),
+        assembly_annotations=expand(
+                f"{output_assembly_annotations}/{{sample_name}}.bed",
+                sample_name=pacb_ilmn_records)
 
 
 rule ev_index_pacb_assemblies:
@@ -72,6 +81,30 @@ rule ev_index_pacb_assemblies:
     shell:
         "bowtie2-build {input.assembly[0]} {params.directory}"
 
+
+rule ev_annotate_assemblies:
+    """
+    From the last calling stage of call_variants workflow (gapfiller), take the induced sequences and map them back to the assemblies to get bed annotations
+    """
+    input:
+        gapfiller_vcf = f"{cv_output_gapfiller}/{DS_NAME_ASSEMBLIES}/{{sample_name}}/gapfiller.vcf.gz",
+        bed_regions = f"{cv_output_gapfiller}/{DS_NAME_ASSEMBLIES}/{{sample_name}}/induced_features.bed",
+        induced_ref = f"{cv_output_gapfiller}/{DS_NAME_ASSEMBLIES}/{{sample_name}}/induced_ref.fa.gz",
+    output:
+        bed=f"{output_assembly_annotations}/{{sample_name}}.bed",
+        bam=f"{output_assembly_annotations}/gapfiller_seqs_to_{{sample_name}}.bam",
+    params:
+        script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
+        idx_prefix=f"{output_bowtie2_indexes}/{{sample_name}}",
+    shadow:
+        "shallow"
+    shell:
+        """
+        bash {params.script_induce_seqs} {input.bed_regions} {input.gapfiller_vcf} {input.induced_ref} gene_seqs {wildcards.sample_name} 0
+        cat gene_seqs/* > all_induced_gene_seqs.fa
+        bowtie2 -x {params.idx_prefix} -U all_induced_gene_seqs.fa -f | samtools sort -OBAM > {output.bam}
+        bedtools bamtobed -i {output.bam} > {output.bed}
+        """
 
 rule ev_bowtie2_pf_map:
     input:
