@@ -43,6 +43,8 @@ def extract_RA(record, sample_record):
     return edlib_align(ref,alt)["editDistance"]
 
 def extract_recall_metrics(record, sample_record):
+    if "VFR_ED_TA" not in sample_record:
+        return None
     result = dict(
             ed_dist_RA = extract_RA(record,sample_record),
             ed_dist_TA = int(sample_record["VFR_ED_TA"])
@@ -52,6 +54,8 @@ def extract_recall_metrics(record, sample_record):
     return result
 
 def extract_precision_metrics(record, sample_record):
+    if "VFR_ED_TA" not in sample_record:
+        return None
     result = dict(
             ed_dist_RA = extract_RA(record,sample_record),
             ed_dist_TA = int(sample_record["VFR_ED_TA"]),
@@ -62,7 +66,7 @@ def extract_precision_metrics(record, sample_record):
         if result["ed_dist_TA"] == 0:
             ed_dist_TR = result["ed_dist_RA"]
         else:
-            raise
+            return None
     result["ed_dist_TR"] = ed_dist_TR
     result["eval_categ_ed_dist_numerator"] = result["ed_dist_TR"] - result["ed_dist_TA"]
     result["eval_categ_ed_dist_denominator"] = result["ed_dist_TR"]
@@ -113,7 +117,10 @@ def main(
                 sample_record = extract_sample_record(record, sample_name)
                 if sample_record["VFR_RESULT"] == "FP_PROBE_UNMAPPED":
                     continue
-                stats.update(**extracter_function(record, sample_record))
+                categ_specific_stats = extracter_function(record, sample_record)
+                if categ_specific_stats is None:
+                    continue
+                stats.update(**categ_specific_stats)
                 result.append(stats)
     for res in result:
         print(str(res), file=out_fname)

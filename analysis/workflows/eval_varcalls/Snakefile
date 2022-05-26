@@ -29,6 +29,7 @@ output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
 cu_mk_output_dirs(dir())
 
+
 bowtie2_idx_extensions = ["rev.1.bt2", "rev.2.bt2", "1.bt2", "2.bt2", "3.bt2", "4.bt2"]
 
 def ev_get_evaluation_bed(wildcards):
@@ -41,9 +42,10 @@ def ev_get_var_bed(wildcards):
         return f'{config["gene_bed_dir"]}/{{gene_list_name}}.bed',
 
 
+GENE_LIST_NAME = "pf6_26_genes"
 rule all:
     input:
-        varifier_pf_validation=ev_get_expected_varifier_outputs("pf6_26_genes"),
+        varifier_pf_stats=f'{output_varifier_pf}/{GENE_LIST_NAME}/all_stats.tsv',
         bowtie2_pf_validation=expand(
             f"{output_bowtie2_pf}/{{gene_list}}/{{outputs}}",
             gene_list=config["pf6_gene_lists"],
@@ -127,7 +129,11 @@ rule ev_varifier_validation:
         vcf=ev_get_tool_vcf,
         assembly=cu_get_assembly,
     output:
-        expand(f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/{{fname}}",fname=["summary_stats.json","precision.vcf","recall/recall.vcf"],allow_missing=True)
+        precision_vcf=f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/precision.vcf.gz",
+        recall_vcf=f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/recall/recall.vcf.gz",
+    params:
+        precision_vcf=f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/precision.vcf",
+        recall_vcf=f"{output_base}/{{dataset_name}}/varifier/{{gene_list_name}}/{{tool}}/{{sample_name}}/recall/recall.vcf",
     resources:
         mem_mb=5000,
     shadow:
@@ -138,6 +144,35 @@ rule ev_varifier_validation:
         gzip -dc {input.ref_genome} | seqkit seq -u > ref.fa
         output_dirname=$(dirname {output[0]})
         varifier vcf_eval --force --no_maxmatch assembly.fa ref.fa {input.vcf} $output_dirname
+        bgzip {params.precision_vcf} && bcftools index {output.precision_vcf}
+        bgzip {params.recall_vcf} && bcftools index {output.recall_vcf}
+        """
+
+rule ev_varifier_variant_breakdown:
+    input:
+        precision_vcf=f"{output_varifier_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}/precision.vcf.gz",
+        recall_vcf=f"{output_varifier_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}/recall/recall.vcf.gz",
+        bed_fname=ev_get_evaluation_bed,
+    output:
+        out_stats_fname=f"{output_varifier_pf}/{{gene_list_name}}/{{tool}}/{{sample_name}}/per_call_stats.tsv"
+    params:
+        script_varif_stats=f'{config["scripts"]}/{WORKFLOW}/extract_varif_stats.py'
+    shell:
+        """
+        python3 {params.script_varif_stats} {input.recall_vcf} {input.precision_vcf} {input.bed_fname} -s {wildcards.sample_name} -t {wildcards.tool} --out_fname {output}
+        """
+
+rule ev_varifier_collect_variant_breakdowns:
+    input:
+        ev_get_expected_varifier_outputs
+    output:
+        f'{output_varifier_pf}/{{gene_list_name}}/all_stats.tsv',
+    params:
+        script_varif_stats=f'{config["scripts"]}/{WORKFLOW}/extract_varif_stats.py'
+    shell:
+        """
+        python3 {params.script_varif_stats} --header_only > {output}
+        cat {input} >> {output}
         """
 
 

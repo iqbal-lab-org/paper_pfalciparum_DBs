@@ -78,21 +78,21 @@ def ev_get_expected_alignments(wildcards):
         tool=tools,
     )
 
-def ev_get_expected_varifier_outputs(gene_list_name):
+def ev_get_expected_varifier_outputs(wildcards):
     pacb_ilmn_snames = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
-    if gene_list_name.startswith("pf6"):
+    if wildcards.gene_list_name.startswith("pf6"):
         tools = [
             "octopus",
             gram_adju,
             "cortex",
-            "pf7",
+            #"pf7", # TODO: the vcf for this is multi-sample, need to handle that
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13",
             f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__{gram_adju}__7__13",
         ]
     else:
         raise ValueError(f"Unsupported dataset name: {dataset_name}")
     return expand(
-        f"{output_varifier_pf}/{gene_list_name}/{{tool}}/{{sample_name}}/summary_stats.json",
+        f"{output_varifier_pf}/{wildcards.gene_list_name}/{{tool}}/{{sample_name}}/per_call_stats.tsv",
         sample_name=pacb_ilmn_snames,
         tool=tools,
     )
