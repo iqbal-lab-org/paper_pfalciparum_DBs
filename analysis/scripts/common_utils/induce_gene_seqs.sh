@@ -17,8 +17,7 @@ sname_in_output="${6:-1}"
 apply_all_samples="${7:-0}"
 
 mkdir -p "$outdir_fname"
-cp "$vcf_fname" input.vcf.gz
-bcftools index -f input.vcf.gz
+bcftools index -f "${vcf_fname}"
 IFS=$'\n'; for gene_line in $(cat "$bed_fname")
 do
     IFS=$'\t'; elems=($gene_line)    
@@ -29,10 +28,10 @@ do
     new_name="$gene_name"
     if [ $sname_in_output -eq 1 ]; then new_name="${new_name}_${sample_name}"; fi
     if [ $apply_all_samples -eq 1 ]; then 
-        samtools faidx "$ref_genome_fname" $reg | bcftools consensus input.vcf.gz |
+        samtools faidx "$ref_genome_fname" $reg | bcftools consensus "${vcf_fname}" |
             sed 's/>.*/>'"$new_name"'/' >> $fout
     else
-        samtools faidx "$ref_genome_fname" $reg | bcftools consensus input.vcf.gz -s $sample_name |
+        samtools faidx "$ref_genome_fname" $reg | bcftools consensus "${vcf_fname}" -s $sample_name |
             sed 's/>.*/>'"$new_name"'/' >> $fout
     fi
 done

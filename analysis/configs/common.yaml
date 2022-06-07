@@ -6,6 +6,7 @@ input_data: "analysis/input_data"
 
 # Output directories
 dl_output_dir: "analysis/outputs/download_data"
+assemblies_dir: "analysis/outputs/download_data/pacb_ilmn_pf/assemblies"
 gene_bed_dir: "analysis/outputs/download_data/gene_beds"
 ref_genome_dir: "analysis/outputs/download_data/ref_genomes"
 varcall_dir: "analysis/outputs/call_variants"

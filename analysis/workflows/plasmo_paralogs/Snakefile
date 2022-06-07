@@ -1,5 +1,8 @@
 """
 Aggregates sequences from paralogs of interest
+
+_tools: getting sequences from malariaGEN (pf6, pf7) and gramtools (joint genotyping) VCFs
+_assemblies: getting sequences from Otto et al. (2018) hybrid PacBio/Illumina assemblies
 """
 from pathlib import Path
 from itertools import chain, repeat
@@ -26,22 +29,36 @@ include: f"../{WORKFLOW}/utils.py"
 
 output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
 output_gene_portions = output_base / "gene_portions"
+output_catted_genes = output_base / "catted_genes"
 gram_version = f"gram_jointgeno_{GMTOOLS_COMMIT}"
-output_gram_version = output_base / gram_version
 cu_mk_output_dirs(dir())
 
-tools = ["gapfiller", f"gram_adju_{GMTOOLS_COMMIT}"]
+tools = ["malariaGEN",gram_version]
 sample_set_names = ["pf6_analysis_set_fws95", "pacb_ilmn_pf@pf6_analysis_set_fws95"]
 
 gene_list_name = "pf6_26_genes"
+otto_assembs = "otto_assemblies"
 # genes = pp_filter_to_paralogs(cu_load_bed(gene_list_name))
 genes = cu_load_bed(gene_list_name)
 
+annotation_dir = Path(f'{config["output_dir"]}/eval_varcalls') / "assembly_annotations"
 
-def pp_get_paralog_family(wildcards):
+
+def pp_get_paralog_family_tools(wildcards):
     paralog_names = config["paralog_names"][wildcards.paralog_abbrev]
     result = expand(
-        f"{output_gene_portions}/{gram_version}/{wildcards.sample_set_name}/{wildcards.tool}/{{paralog}}.fa",
+        f"{output_gene_portions}/{wildcards.tool}/{wildcards.sample_set_name}/{{paralog}}.fa",
+        paralog=paralog_names,
+    )
+    return result
+
+def pp_get_paralog_family_assemblies(wildcards):
+    wildcards.sample_set_name = "pacb_ilmn_pf@pf6_analysis_set_fws95"
+    sample_names = _pp_load_sample_names(wildcards)
+    paralog_names = config["paralog_names"][wildcards.paralog_abbrev]
+    result = expand(
+        f"{output_gene_portions}/{otto_assembs}/{{sample_name}}/{{paralog}}_{{sample_name}}.fa",
+        sample_name=sample_names,
         paralog=paralog_names,
     )
     return result
@@ -49,14 +66,17 @@ def pp_get_paralog_family(wildcards):
 
 rule all:
     input:
-        paralog_seqs=pp_get_all_paralog_regions(
+        paralog_seqs_tools=pp_get_all_paralog_regions(
             expand(
-                f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
+                f"{output_catted_genes}/{{tool}}/{{sample_set_name}}_{{paralog_abbrev}}_dna.fa",
                 tool=tools,
                 sample_set_name=sample_set_names,
                 allow_missing=True,
             )
         ),
+        paralog_seqs_for_assemblies=pp_get_all_paralog_regions(
+                [f"{output_catted_genes}/{otto_assembs}/{{paralog_abbrev}}_dna.fa"],
+            )
 
 
 rule pp_induce_gene_seqs:
@@ -66,7 +86,7 @@ rule pp_induce_gene_seqs:
         ref_genome=cu_get_ref_genome_no_wildcards(gene_list_name),
     output:
         expand(
-            f"{output_gene_portions}/{gram_version}/{{sample_set_name}}/{{tool}}/{{gene}}.fa",
+            f"{output_gene_portions}/{{tool}}/{{sample_set_name}}/{{gene}}.fa",
             gene=genes,
             allow_missing=True,
         ),
@@ -85,7 +105,7 @@ rule pp_induce_gene_seqs:
             Path(elem).touch(exist_ok=True)
         for sample_name, vcf in zip(params.sample_names, input.vcfs):
             all_samples = 0
-            if sample_name == "ref" or "pacb" in wildcards.sample_set_name:
+            if sample_name == "ref":
                 all_samples = 1
             sp_run(
                 f"bash {params.induce_seq_script} {input.bed} {vcf} {input.ref_genome} {outdir} {sample_name} 1 {all_samples}",
@@ -94,15 +114,49 @@ rule pp_induce_gene_seqs:
             )
 
 
-rule pp_cat_paralogs:
+rule pp_cat_paralogs_tools:
     input:
-        pp_get_paralog_family,
+        pp_get_paralog_family_tools,
     output:
-        dna_seqs=f"{output_gram_version}/{{sample_set_name}}/{{tool}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
+        dna_seqs=f"{output_catted_genes}/{{tool}}/{{sample_set_name}}_{{paralog_abbrev}}_dna.fa",
     shell:
         """
         outdir=$(dirname {output})
         mkdir -p $outdir
-        cp {input} $outdir
+        cat {input} > {output}
+        """
+
+rule pp_induce_seqs_in_assembly:
+    input:
+        assembly=cu_get_assembly,
+        annotation=f"{annotation_dir}/{{sample_name}}.bed",
+    output:
+        expand(
+            f"{output_gene_portions}/{otto_assembs}/{{sample_name}}/{{gene}}_{{sample_name}}.fa",
+            gene = ["DBLMSP","DBLMSP2"],
+            allow_missing = True
+            )
+    params:
+        sample_dir=f"{output_gene_portions}/{otto_assembs}/{{sample_name}}",
+    shadow:
+        "shallow"
+    shell:
+        """
+        cp {input.assembly} assembly.fa.gz
+        bgzip -df assembly.fa.gz
+        bedtools getfasta -fi assembly.fa -bed {input.annotation} -name | sed -E 's/(.*)::([^_]+).*/\\1_\\2/' | seqkit split -i -O {params.sample_dir} 
+        rename 'stdin.id_' '' {params.sample_dir}/*
+        rename '.fasta' '.fa' {params.sample_dir}/*
+        """
+
+rule pp_cat_paralogs_assemblies:
+    input:
+        pp_get_paralog_family_assemblies,
+    output:
+        dna_seqs=f"{output_catted_genes}/{otto_assembs}/{{paralog_abbrev}}_dna.fa",
+    shell:
+        """
+        outdir=$(dirname {output})
+        mkdir -p $outdir
         cat {input} > {output}
         """

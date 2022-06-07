@@ -1,3 +1,2 @@
-assemblies_dir: "analysis/outputs/download_data/pacb_ilmn_pf/assemblies"
 pf6_gene_lists: ["pf6_26_genes"]
 pvgv_gene_lists: ["pvivax_7_genes"]
