@@ -18,7 +18,7 @@ GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
 # Input: gramtools pf6 graph
 GRAM_JOINT_GENO_PARAMS = "pf6__analysis_set_fws95__gapfiller__pf6_26_genes_mml7_k13"
 input_gram_build = (
-    f"/hps/nobackup/iqbal/bletcher/plasmo_surfants/analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/"
+    f"analysis/outputs/joint_genotyping/gram_build_{GMTOOLS_COMMIT}/"
     + "/".join(GRAM_JOINT_GENO_PARAMS.split("__"))
     + "/kmers_stats"
 )
@@ -240,7 +240,6 @@ rule gs_get_induced_gene_seqs:
         samples=gs_get_samples,
         genes=GENES_TO_INDUCE,
         output_tool_dir=f"{output_gene_seqs}/{{tool}}/{{dataset_name}}",
-
     shell:
         """
         mkdir -p {params.output_tool_dir}

@@ -130,10 +130,28 @@ Note the code in `analysis/workflows/common_utils` also derives this (and other)
 
 ## Generational datasets
 
-This includes clone trees from Claessens et al (2014) and crosses datasets, from Miles
-et al. (2016) and Garimella et al. (2020)
+This includes clone trees and crosses datasets, literature refs and data sources are given below.
 
-The crosses input tsv is produced from the input txt files of each paper as follows:
+### Clone trees
+
+* Claessens et al. (2014)[doi](): clone trees for parental lines 3D7, W2, Dd2, HB3. All
+  parental lines are lab strains. 197 WGS samples in total.
+* Hamilton et al. (2016)[doi](https://doi.org/10.1093/nar/gkw1259): clone trees for
+  parental lines KH1-01 and KH2-01. These were culture-adapted from clinical samples
+  from Cambodia. 87 WGS samples in total.
+
+To build the input tsvs, I first took the initial excel files containing sample IDs, tree IDs
+and ENA accessions from the supplementary materials of each paper, and combined them together. 
+I then added a parent tree ID for each sample, using the clone tree diagrams in each
+paper, also in the supplementary material. This is stored in analysis/input_data/sample_lists/generational_samples/clone_trees.tsv
+For six samples, I found convincing evidence of sample mislabeling: across several
+genes, I find large distances between the inferred sequences for the parent and the
+child samples, but a distance of zero to another parent in a different clone tree. I
+corrected these, and stored the new sample tsv in analysis/input_data/sample_lists/generational_samples/clone_trees_corrected.tsv
+
+### Crosses
+
+The crosses input tsv is produced from the input txt files of each of two papers as follows:
 * Miles et al. (2016) table: ftp://ngs.sanger.ac.uk/production/malaria/pf-crosses/1.0/samples.txt, which I call `miles_etal_crosses.txt`
 * Garimella et al. (2020) table: https://github.com/mcveanlab/Corticall/raw/master/manuscript/manifest.illumina.txt which I call `garimella_etal_crosses.txt`
 

@@ -211,7 +211,7 @@ rule cv_map_to_induced_ref:
         mkdir -p $(dirname {output.induced_ref})
         cp {input.vcf} adju.vcf.gz
         bcftools index adju.vcf.gz
-        bgzip -dc {input.ref_genome} | bcftools consensus -s {wildcards.sample_name} adju.vcf.gz > induced_ref.fa
+        bgzip -dc {input.ref_genome} | bcftools consensus -s {wildcards.sample_name} adju.vcf.gz | sed 's/\./a/' > induced_ref.fa
         bwa index induced_ref.fa
         bwa mem -t {threads} -R "@RG\\tID:1\\tSM:{wildcards.sample_name}" induced_ref.fa {input.reads} > mapped.sam
         samtools sort -o {output.induced_bam} -O BAM mapped.sam
