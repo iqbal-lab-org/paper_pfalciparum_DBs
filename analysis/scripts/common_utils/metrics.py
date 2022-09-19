@@ -27,7 +27,7 @@ class MetricsRecorder:
     def get_missing_fields(self):
         result = set()
         for required_field in self._required_headers:
-            if getattr(self, required_field) == self.UNSET:
+            if getattr(self, required_field) == self._UNSET:
                 result.add(required_field)
         return result
 
