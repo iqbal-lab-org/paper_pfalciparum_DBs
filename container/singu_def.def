@@ -3,7 +3,7 @@ From: ubuntu:focal
 
 %setup
     mkdir ${SINGULARITY_ROOTFS}/setup_files
-    rsync -a analysis/scripts/ ${SINGULARITY_ROOTFS}/nesting_paper_scripts
+    rsync -a analysis/scripts/ ${SINGULARITY_ROOTFS}/plasmo_surfants_scripts
 
 %files
     container/pyrequirements.txt /setup_files
@@ -20,11 +20,14 @@ From: ubuntu:focal
 	automake \
 	cmake \
 	git \
-    openjdk-8-jre \
+    openjdk-11-jre \
 	pkg-config \
 	python3.8 \
 	python3-pip \
+    psmisc \
     r-base \
+    sqlite3 \
+    xvfb \
 	wget \
 	zlib1g-dev
 
@@ -35,7 +38,7 @@ From: ubuntu:focal
 	# python requirements of repo
 	pip3 install pip==20.0.2 
 	pip3 install -r /setup_files/pyrequirements.txt
-    pip3 install -e /nesting_paper_scripts
+    pip3 install -e /plasmo_surfants_scripts
 
     # R requirements of repo
     Rscript /setup_files/Rpacks.R
@@ -149,6 +152,8 @@ From: ubuntu:focal
     pip3 install .
     cd .. && rm -r varifier
 
+	#/*************/
+
 
     ## seqkit (fasta manipulation)
     cd ${HOME}
@@ -158,7 +163,7 @@ From: ubuntu:focal
     ## cdhit (sequence clustering into representatives)
     cd ${HOME}
     wget -O cd-hit.tar.gz https://github.com/weizhongli/cdhit/releases/download/V4.8.1/cd-hit-v4.8.1-2019-0228.tar.gz
-    tar xf cd-hit.tar.gz && cd-hit-v4.8.1-2019-0228 && make && cp {cd-hit,cd-hit-est} /usr/bin/ && cd ..
+    tar xf cd-hit.tar.gz && cd cd-hit-v4.8.1-2019-0228 && make && cp {cd-hit,cd-hit-est} /usr/bin/ && cd ..
     rm -rf cd-hit*
 
     ## GapFiller (local de novo assembly of paired-end reads)
@@ -170,6 +175,24 @@ From: ubuntu:focal
     cp ./src/GapFiller /usr/bin
     cp .. && rm -r gapfiller-2.1.2
 
+    ## MosaicAligner (alignment to haplotype panel by pairHMM + recombination)
+    cd ${HOME}
+    git clone https://github.com/bricoletc/MosaicAligner
+    cd MosaicAligner && git checkout b445703c8ec939a39b1d839f2619f5766c024bc1
+    make && cp mosaic /usr/bin/ && cd ..
+    rm -rf MosaicAligner
+
+    ## hmmer (build HMMs from msas)
+    cd ${HOME}
+    wget http://eddylab.org/software/hmmer/hmmer-3.3.2.tar.gz -O - | tar -xzf -
+    cd hmmer-3.3.2 && ./configure && make
+    cp ./src/hmmbuild /usr/bin
+    cd .. && rm -r hmmer-3.3.2
+
+    ## IGV (genome sequence & alignment visualisation)
+    cd ${HOME}
+    wget https://data.broadinstitute.org/igv/projects/downloads/2.11/IGV_2.11.1.zip
+    unzip IGV_2.11.1 && ln -s ${HOME}/IGV_2.11.1/igv.sh /usr/bin/igv.sh
 
     ##### Currently tested ends here #######
 
