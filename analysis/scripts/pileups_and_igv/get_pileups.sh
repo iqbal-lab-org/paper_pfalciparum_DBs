@@ -1,5 +1,5 @@
-set -eu
-BASE_DIR="/hps/nobackup/iqbal/bletcher/plasmo_surfants"
+set -e
+BASE_DIR="."
 
 sample=$1
 mode=$2
@@ -8,7 +8,8 @@ modes=("eval_varcalls" "generational_samples")
 choices_ev=("joint_geno" "baseline" "pf6")
 choices_gs=("joint_geno" "gapfiller")
 usage(){
-    echo -e "usage: $0 sample_name mode tool_name;" 
+    echo -e "usage: $0 sample_name mode tool_name" 
+    echo "This script should be launched from cwd set to root directory.\n" 
     echo "mode choice: ${modes[@]}"
     echo -e "tool_name choices:"
     echo -e "\t ${choices_ev[@]} (mode = ${modes[0]})"
