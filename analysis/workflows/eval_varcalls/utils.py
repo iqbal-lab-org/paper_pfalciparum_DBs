@@ -111,7 +111,7 @@ def ev_get_expected_stats(wildcards):
             #gram_adju,
             #"gapfiller",
             f"{gram_jointgeno}__pf6__analysis_set_fws95__gapfiller__7__13",
-            f"{gram_jointgeno}__pf6__analysis_set_fws95__{gram_adju}__7__13",
+            #f"{gram_jointgeno}__pf6__analysis_set_fws95__{gram_adju}__7__13",
         ]
         samples = cu_get_sample_names_fws_matching("pf6_analysis_set_fws95")
     elif wildcards.dataset_name.startswith("pvgv"):

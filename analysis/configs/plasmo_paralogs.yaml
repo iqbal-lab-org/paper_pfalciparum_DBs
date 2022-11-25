@@ -1,3 +1,9 @@
-paralog_abbrevs: ["DBs"]
+paralog_abbrevs: ["DBs","AMA1","MSP3","MSP6","EBA175","MSP2","MSP1"]
 paralog_names:
     DBs: ["DBLMSP", "DBLMSP2"]
+    AMA1: ["AMA1"]
+    MSP3: ["MSP3"]
+    MSP6: ["MSP6"]
+    MSP2: ["MSP2"]
+    MSP1: ["MSP1"]
+    EBA175: ["EBA175"]

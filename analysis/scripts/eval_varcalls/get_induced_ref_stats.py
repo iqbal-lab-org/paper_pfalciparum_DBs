@@ -9,7 +9,7 @@ from pysam import (
     stats as sam_stats,
     mpileup as sam_mpileup,
 )
-from numpy import absolute
+from numpy import absolute, mean, std
 
 from common_utils.shift_to_induced_genome_coords import translate_bed
 
@@ -57,6 +57,8 @@ class Stats:
         "fraction_reads_above_mean_ins_size_plus_two_std",
         "fraction_reads_below_mean_ins_size_minus_two_std",
         "max_insert_size",
+        "mean_read_coverage",
+        "std_read_coverage",
     ]
 
     def __init__(self, sample_name: str, tool_name: str, gene_name: str):
@@ -178,6 +180,8 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
         mpileup_output,
     )
     depths = list(map(lambda line: int(line.split("\t")[3]), mpileup_output))
+    record["mean_read_coverage"] = round(mean(depths),3)
+    record["std_read_coverage"] = round(std(depths),3)
     if len(depths) > 0:
         for limit in [0, 4, 9]:
             record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(

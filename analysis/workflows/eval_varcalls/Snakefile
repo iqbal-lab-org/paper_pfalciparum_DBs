@@ -49,6 +49,8 @@ def ev_get_var_bed(wildcards):
 
 pacb_ilmn_records = [elem.sample_name for elem in cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])]
 GENE_LIST_NAME = "pf6_26_genes"
+
+
 rule all:
     input:
         varifier_pf_stats=f'{output_varifier_pf}/{GENE_LIST_NAME}/all_stats.tsv',
@@ -59,7 +61,7 @@ rule all:
         ),
         induced_ref_mapping_stats_pf6=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
-            dataset_name=["pf6",DS_NAME_ASSEMBLIES]
+            dataset_name=["pf6",DS_NAME_ASSEMBLIES],
             gene_list=config["pf6_gene_lists"],
         ),
         assembly_annotations=expand(

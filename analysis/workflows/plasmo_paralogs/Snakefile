@@ -56,6 +56,8 @@ def pp_get_paralog_family_assemblies(wildcards):
     wildcards.sample_set_name = "pacb_ilmn_pf@pf6_analysis_set_fws95"
     sample_names = _pp_load_sample_names(wildcards)
     paralog_names = config["paralog_names"][wildcards.paralog_abbrev]
+    if "MSP1" in paralog_names:
+        sample_names = [n for n in sample_names if n != "PfHB3"]
     result = expand(
         f"{output_gene_portions}/{otto_assembs}/{{sample_name}}/{{paralog}}_{{sample_name}}.fa",
         sample_name=sample_names,
