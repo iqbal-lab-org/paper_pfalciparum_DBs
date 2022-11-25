@@ -4,6 +4,7 @@ library(tidyr)
 library(dplyr)
 library(readr)
 library(forcats)
+library(ggsci)
 library(argparser, quietly=TRUE)
 
 get_means_ir <- function(df_ir){
@@ -13,8 +14,12 @@ get_means_ir <- function(df_ir){
 }
 
 plot_means <- function (means_ir,stat_name){
-  ggplot(means_ir, aes_string(y=stat_name,x="gene",fill="tool")) + geom_col(position="dodge") +
-  theme(text = element_text(size=14), axis.text.x = element_text(angle=30)) + ylab(paste("Mean",stat_name))
+  res <- ggplot(means_ir, aes_string(y=stat_name,x="gene",fill="tool")) + geom_col(position="dodge") +
+    scale_fill_lancet() +
+  theme(text = element_text(size=15), axis.text.x = element_text(angle=30)) + 
+    ylab(paste("Mean",stat_name)) + xlab("Gene")
+  res
+  return(res)
 }
 
 plot_gene_stat_tool_histo <- function(df_ir, stat_name, gene_name,tool_name) {

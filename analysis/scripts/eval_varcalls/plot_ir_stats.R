@@ -4,27 +4,28 @@ library(tidyr)
 library(dplyr)
 library(readr)
 library(forcats)
+library(cowplot)
+library(ggsci)
 library(argparser, quietly=TRUE)
 
 this_dir <- dirname(sys.frame(1)$ofile)
+setwd("/home/brice/Desktop/research/PhD/main_PhD/analyses/plasmo_surfants")
 source("analysis/scripts/common_utils/ir_stat_functions.R")
 
-df_ir = read_tsv("/home/brice/Desktop/main_PhD/analyses/plasmo_surfants/tmp_work/quality_control/ir_stats.tsv")
+df_ir = read_tsv("tmp_work/ir_stats.tsv")
 
 df_ir$tool <- sub("gram_jointgeno.*gapfiller.*","gram_joint_geno_gapfiller",df_ir$tool)
 df_ir$tool <- sub("gram_jointgeno.*gram_adju.*","gram_joint_geno_gram_adju",df_ir$tool)
 df_ir$tool <- sub("gram_adju_.*","gram_adju",df_ir$tool)
 df_ir <- df_ir %>% filter(!grepl("fws95",tool))
 means_ir <- get_means_ir(df_ir)
-#means_ir$tool<- sub("__([0-9]+)__([0-9]+)","(\\1_\\2)",means_ir$tool,perl=TRUE)
 
 ## Filter to gene subset
 filtered_out_genes <- c("MSP4","MSP5","MSP7","P48_45","Pfs25","RH5","SURF4_2","TRAP","CelTOS","HRP2")
 filtered_in_tools <- c("baseline","pf6","gram_joint_geno_gapfiller")
 means_ir_filtered <- means_ir %>% filter(! gene %in% filtered_out_genes & tool %in% filtered_in_tools)
 means_ir_filtered <- means_ir %>% filter(! gene %in% filtered_out_genes)
-filtered_in_genes <- c("MSP2","DBLMSP_DBL","DBLMSP2_DBL")
-means_ir_filtered <- means_ir %>% filter(gene %in% filtered_in_genes & tool %in% filtered_in_tools)
+
 
 plot_means(means_ir_filtered, "base_error_rate")
 plot_means(means_ir_filtered, "fraction_disagreeing_pileup_min5x")
@@ -69,18 +70,21 @@ filter_by <- function(df_ir, gene_name, tool_name, stat_names, values){
    new_size <-length(unique(gene_df$sample))
    print(paste("Leaves ",new_size,"samples (",round(new_size/initial_size,3),"%)"))
  }
+ return(gene_df)
 }
 
-filter_by(df_ir, "DBLMSP_DBL", "joint_geno_gapfiller",
-          c("fraction_positions_0x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
+filter_by(df_ir, "DBLMSP", "joint_geno_gapfiller",
+          c("fraction_positions_4x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
           c(0.00001,0.00001,0.15))
-filter_by(df_ir, "DBLMSP_DBL", "pf6",
-          c("fraction_positions_0x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
+filter_by(df_ir, "DBLMSP", "pf6",
+          c("fraction_positions_4x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
           c(0.00001,0.00001,0.15))
-filter_by(df_ir, "DBLMSP_DBL",c("fraction_reads_above_mean_ins_size_plus_two_std"),c(0.15))
-filter_by(df_ir, "DBLMSP2_DBL", "joint_geno_gapfiller",
-          c("fraction_positions_0x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
-          c(0.01,0.01,0.15))
+DB1_pass <- filter_by(df_ir, "DBLMSP", "joint_geno_gapfiller",
+          c("fraction_positions_4x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
+          c(0.00001,0.00001,0.15))
+DB2_pass <- filter_by(df_ir, "DBLMSP2", "joint_geno_gapfiller",
+          c("fraction_positions_4x_or_less","fraction_disagreeing_pileup_min5x","fraction_reads_above_mean_ins_size_plus_two_std"),
+          c(0.00001,0.00001,0.15))
 
 ## Get samples that are improved in gramtools pipeline
 pivoted <- pivot_wider(df_ir, 
@@ -109,9 +113,10 @@ pacb_truth_means_filtered <- pacb_truth_means %>% filter(! gene %in% filtered_ou
 
 ggplot(pacb_truth_means_filtered, aes(y=mean_NM,x=gene,fill=tool)) + geom_col(position="dodge") +
   theme(text = element_text(size=14), axis.text.x = element_text(angle=0)) + 
-  ylab("Mean distance to truth assembly") + xlab("Gene")
+  ylab("Mean distance to truth assembly") + xlab("Gene") + scale_fill_lancet()
 ggsave("/home/brice/Desktop/cur_results/R_mean_NM.pdf", width=14, height=9)
 ggsave("/home/brice/Desktop/cur_results/R_mean_NM_subset_of_genes_2.pdf", width=11, height=8)
+
 
 mean_truth_per_tool <-pacb_truth_means_filtered %>% group_by(tool) %>% summarise(mean=mean(mean_NM))
 ggplot(pacb_truth_means_filtered, aes(x=mean_NM)) + geom_histogram(bins=40) + 
@@ -142,16 +147,83 @@ ggsave(file.path("/home/brice/Desktop/main_PhD/analyses/plasmo_surfants/tmp_work
 lm_fit<-lm(mean_NM~base_error_rate,merged_df)
 summary(lm_fit)
 
-# df_myo_7 = df %>% filter(gene == "LSA1" | gene == "DBLMSP" | gene == "DBLMSP2"
-#                          | gene == "LSA3" | gene == "CSP" | gene == "MSP1" | gene == "MSP2")
-df_myo_7 = df_myo_7 %>% filter(tool == "cortex" | tool == "gram_jointgeno_aff1c529" | tool == "myo_7_pf_genes")
-means_myo_7 <- df_myo_7 %>% group_by(gene, tool) %>% summarise(
-  mean_bases_mapped=mean(bases_mapped_cigar),
-  mean_error_rate=mean(base_error_rate),
-  mean_ir_scaled_eddist=mean(induced_ref_scaled_eddist),
-  )
-ggplot(means_myo_7, aes(y=mean_bases_mapped,x=gene,fill=tool)) + geom_col(position="dodge")
-ggplot(means_myo_7, aes(y=mean_error_rate,x=gene,fill=tool)) + geom_col(position="dodge")
-ggplot(means_myo_7, aes(y=mean_ir_scaled_eddist,x=gene,fill=tool)) + geom_col(position="dodge")
 
-ggplot(means_myo_7, aes(y=mean_error_rate,x=mean_ir_scaled_eddist,colour=tool)) + geom_point()
+######### Coverage-based analysis #########
+library(ggExtra)
+df_ir_covs <- df_ir %>% filter(tool == "gram_joint_geno_gapfiller") %>% 
+  filter(! is.nan(mean_read_coverage)) %>%
+  select(contains("read_coverage") | c("sample","gene","tool")) %>% 
+  mutate(lower_bound = pmax(mean_read_coverage - 2*std_read_coverage,0), upper_bound = mean_read_coverage + 2*std_read_coverage)
+
+interval_overlap <- function(ref_l, ref_h, target_l, target_h){
+  # Below two conditions model containment, in which case overlap is complete
+  if (target_l >= ref_l && target_h <= ref_h) return(1)
+  if (ref_l >= target_l && ref_h <= target_h) return(1)
+  # Below computes overlap of target to ref, divided by target length.
+  len <- target_h - target_l
+  if (target_l <= ref_l){
+    result <- max((target_h - ref_l)/len, 0)
+  }
+  else {
+    result <- max((ref_h - target_l)/len, 0)
+  }
+  return(min(result, 1))
+}
+
+cov_comparator <- function(sub_df, ignored_arg){
+ ref_gene <- filter(sub_df, gene == "AMA1") 
+ ref_lower <- ref_gene$lower_bound
+ ref_mean <- ref_gene$mean_read_coverage
+ ref_upper <- ref_gene$upper_bound
+ result <- sub_df %>% rowwise() %>% 
+   mutate(overlap = interval_overlap(ref_lower, ref_upper, lower_bound, upper_bound), mean_ratio=mean_read_coverage / ref_mean)
+ return(result)
+}
+
+df_ir_covs_with_comps <- df_ir_covs %>% group_by(sample) %>% group_modify(cov_comparator)
+DBs <- c("DBLMSP", "DBLMSP2")
+genes <- c("DBLMSP", "DBLMSP2","CelTOS","Pfs25")
+DBs_DBLs <- c("DBLMSP_DBL", "DBLMSP2_DBL")
+xlab_text <- "Ratio of mean coverage in gene to mean coverage in AMA1"
+ylab_text <- "Coverage overlap with AMA1"
+
+plot_putative_CNVs <- function(df,dot_size=FALSE){
+  if (dot_size){
+    p<-ggplot(df %>% filter(gene %in% DBs),aes(x=mean_ratio,y=overlap,colour=gene,size=mean_read_coverage)) +
+    scale_size(name="Mean read \ncoverage in gene")
+  }
+  else p<-ggplot(df %>% filter(gene %in% DBs),aes(x=mean_ratio,y=overlap,colour=gene))
+  p<- p + geom_point() + 
+    scale_x_continuous(breaks=c(0,1,2,5,10)) +
+    xlab(xlab_text) + ylab(ylab_text) +
+    scale_colour_discrete(name="Gene")+ theme(text = element_text(size=15))
+  p<-ggMarginal(p,type="histogram") 
+  p
+  return(p)
+}
+
+df_ir_covs_with_comps_filterpass <- filter(df_ir_covs_with_comps, 
+                                           (gene == "DBLMSP" & sample %in% unique(DB1_pass$sample)) | 
+                                            (gene == "DBLMSP2" & sample %in% unique(DB2_pass$sample)) )
+p<-plot_putative_CNVs(df_ir_covs_with_comps,dot_size=TRUE)
+ggsave("~/Desktop/cur_results/paper_figs/fold_coverages.pdf",plot=p,height=10, width=15)
+plot_putative_CNVs(df_ir_covs_with_comps_filterpass)
+
+p2<-ggplot(df_ir_covs_with_comps %>% filter(gene %in% DBs),aes(x=mean_ratio,y=mean_read_coverage,colour=gene)) + 
+  geom_point() + 
+  scale_x_continuous(breaks=c(0,1,2,5,10)) +
+  scale_y_continuous(breaks=c(0,10,20,50,100,150,300)) +
+  xlab(xlab_text) + ylab("Mean coverage")
+ggMarginal(p2,type="histogram")
+
+p3<-ggplot(df_ir_covs_with_comps %>% filter(gene %in% DBs),aes(x=mean_read_coverage,y=overlap,colour=gene)) + 
+  geom_point() + 
+  xlab("Mean read coverage") + ylab(ylab_text)
+ggMarginal(p3,type="histogram")
+
+high_ratios <- df_ir_covs_with_comps_f %>% filter(gene %in% DBs & mean_ratio > 2)
+t <- df_ir_covs_with_comps %>% filter(sample %in% unique(high_ratios$sample)) %>% filter(gene %in% c(DBs,"AMA1"))
+low_overlaps <- df_ir_covs_with_comps %>% filter(gene %in% DBs & overlap < 0.1)
+t2 <- df_ir_covs_with_comps %>% filter(sample %in% unique(low_overlaps$sample)) %>% filter(gene %in% c(DBs,"AMA1"))
+
+write_tsv(df_ir_covs_with_comps,"tmp_work/ir_stats_fold_coverages.tsv")
