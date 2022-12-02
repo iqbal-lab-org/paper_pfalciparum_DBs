@@ -39,6 +39,6 @@ prefix=`dirname $(readlink $(which igv.sh) || echo igv.sh)`
         -Dapple.laf.useScreenMenuBar=true \
         -Djava.net.preferIPv4Stack=true \
         --module=org.igv/org.broad.igv.ui.Main -b ${script_name} \
-&& killall Xvfb
+&& killall Xvfb && sleep 2
 
 
