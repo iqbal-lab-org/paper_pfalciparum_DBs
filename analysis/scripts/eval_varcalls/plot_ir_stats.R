@@ -11,21 +11,25 @@ library(ggExtra)
 library(argparser, quietly=TRUE)
 
 #this_dir <- dirname(sys.frame(1)$ofile)
-source("analysis/scripts/common_utils/ir_stat_functions.R")
+#source("analysis/scripts/common_utils/ir_stat_functions.R")
 
 args <- arg_parser("Plot stats computed by eval_varcalls workflow")
 args <- add_argument(args, "ir_stats_all_tsv", help="stats tsv - all analysis-set samples")
 args <- add_argument(args, "ir_stats_500_tsv", help="stats tsv - 500 validation samples")
 args <- add_argument(args, "pacb_ilmn_tsv", help="stats tsv - truth-assembly-based evaluation")
 args <- add_argument(args, "ir_stat_functions", help="Rscript containing plotting utilities")
-args <- add_argument(args, "base_dir_for_output_plots", help="output directory")
+args <- add_argument(args, "base_dir_for_output_plots", help="output directory for plots")
+args <- add_argument(args, "base_dir_for_output_tsvs", help="output directory for tsvs: fold-coverages, 'single-SNP'-solvable samples")
 argv <- parse_args(args)
 
 ir_stats_all_tsv <- argv$ir_stats_all_tsv
+#ir_stats_all_tsv <- "tmp_work/ir_stats_all.tsv"
 ir_stats_500_tsv <- argv$ir_stats_500_tsv
 ir_stats_pacb_ilmn <- argv$pacb_ilmn_tsv
 BASE_PLOT_DIR <- argv$base_dir_for_output_plots
 dir.create(BASE_PLOT_DIR, recursive=TRUE)
+BASE_STATS_DIR <- argv$base_dir_for_output_tsvs
+dir.create(BASE_STATS_DIR, recursive=TRUE)
 source(argv$ir_stat_functions)
 
 plot_save <- function(fname, width, height,plot=""){
@@ -118,37 +122,28 @@ means_ir <- get_means_ir(df_ir)
 ###############################################
 ## Filtering samples using ir stats##
 ###############################################
-
 ## Filtering samples based on above stats
-filter_by <- function(df_ir, gene_name, tool_name, stat_names, values){
-  initial_size<-length(unique(df_ir$sample))
-  gene_df <- df_ir %>% filter(gene == gene_name & grepl(tool_name,tool))
-  for (i in seq(length(stat_names))){
-    if (grepl("positions_[0-9]x|disagreeing_pileup|reads_above_mean_ins",stat_names[i])){
-      gene_df <- gene_df %>% filter(get(stat_names[i]) < values[i])
-    } else if (grepl("properly_paired",stat_names[i])) {
-      gene_df <- gene_df %>% filter(get(stat_names[i]) > values[i])
-    } else {
-      print("Unrecognised stat")
-      return()
-    }
-    new_size <-length(unique(gene_df$sample))
-    print(paste("Leaves ",new_size,"samples (",round(new_size/initial_size,3),"%)"))
-  }
-  return(gene_df)
-  }
-
-DB1_pass <- filter_by(df_ir, "DBLMSP", "gram_joint_geno",
-                  c(stat_list$stats[1],stat_list$stats[2],stat_list$stats[3]),
-                  c(0.00001,0.00001,0.15))
-DB2_pass <- filter_by(df_ir, "DBLMSP2", "gram_joint_geno",
-                  c(stat_list$stats[1],stat_list$stats[2],stat_list$stats[3]),
-                  c(0.00001,0.00001,0.15))
-                       
-
 df_ir_filtering <- mutate(df_ir, gaps=get(stat_list$stats[1]),pileup_diff=get(stat_list$stats[2]),
                           large_inserts=get(stat_list$stats[3]),small_inserts=stat_list$stats[4]) %>%
   select(sample,tool,gene,gaps,pileup_diff,large_inserts)
+
+single_pileup_errors <- df_ir_filtering %>% filter(
+  gene %in% DBs &
+    tool == "gram_joint_geno" &
+    gaps<=0 &
+    pileup_diff >0 &
+    pileup_diff < 0.0005 &
+    large_inserts <= 0.15
+)
+write_tsv(single_pileup_errors,paste(BASE_STATS_DIR,"single_SNP_solvable_seqs.tsv",sep="/"))
+DBs_pass <- df_ir_filtering %>% filter(
+  gene %in% DBs &
+    tool == "gram_joint_geno" &
+    gaps<=0 &
+    pileup_diff <=0 &
+    large_inserts <= 0.15
+)
+  
 df_ir_resolved <- df_ir_filtering %>% group_by(tool,gene) %>% 
   summarise(
     num_perfectly_resolved = sum(gaps <= 0& pileup_diff <=0 & large_inserts <=0.15,na.rm=TRUE),
@@ -414,6 +409,8 @@ plot_putative_CNVs <- function(df,dot_size=FALSE){
 p<-plot_putative_CNVs(df_ir_covs_with_comps,dot_size=TRUE)
 plot_save("coverage_analysis/fold_coverages_all_analysis_set_samples.pdf",plot=p,height=10, width=15)
 
+DB1_pass <- filter(DBs_pass, gene == "DBLMSP")
+DB2_pass <- filter(DBs_pass, gene == "DBLMSP2")
 df_ir_covs_with_comps_filterpass <- filter(df_ir_covs_with_comps, 
                                            (gene == "DBLMSP" & sample %in% unique(DB1_pass$sample)) | 
                                             (gene == "DBLMSP2" & sample %in% unique(DB2_pass$sample)) )
@@ -421,7 +418,7 @@ p<-plot_putative_CNVs(df_ir_covs_with_comps_filterpass)
 plot_save("coverage_analysis/fold_coverages_filterpass_analysis_set_samples.pdf",plot=p,height=10, width=15)
 
 high_ratios <- df_ir_covs_with_comps_filterpass %>% filter(gene %in% DBs & mean_ratio > 2 & overlap < 0.5)
-write_tsv(high_ratios,paste(BASE_PLOT_DIR,"coverage_analysis","putative_duplications_in_filterpass.tsv",sep="/"))
+write_tsv(high_ratios,paste(BASE_STATS_DIR,"putative_duplications_in_filterpass.tsv",sep="/"))
 #t <- df_ir_covs_with_comps %>% filter(sample %in% unique(high_ratios$sample)) %>% filter(gene %in% c(DBs,"AMA1"))
 #t2 <- df_ir_covs_with_comps %>% filter(sample %in% unique(low_overlaps$sample)) %>% filter(gene %in% c(DBs,"AMA1"))
 
@@ -438,7 +435,7 @@ write_tsv(high_ratios,paste(BASE_PLOT_DIR,"coverage_analysis","putative_duplicat
 #ggMarginal(p3,type="histogram")
 
 
-write_tsv(df_ir_covs_with_comps,paste(BASE_PLOT_DIR,"coverage_analysis","ir_stats_fold_coverages.tsv",sep="/"))
+write_tsv(df_ir_covs_with_comps,paste(BASE_STATS_DIR,"ir_stats_fold_coverages.tsv",sep="/"))
 
 
 ###############################################
