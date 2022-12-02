@@ -20,10 +20,6 @@ def ev_get_tool_vcf(wildcards):
     malariagen_vcf = wildcards.tool in {"pf6","pf7"}
     if wildcards.tool == "baseline":
         return f'{config["input_data"]}/template.vcf.gz'
-    elif wildcards.tool == "myo_7_pf_genes":
-        return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
-    elif wildcards.tool == "paolo_pvgv":
-        return f'{config["input_data"]}/barry_lab/{wildcards.tool}.vcf.gz'
     elif malariagen_vcf:
         return f'{config["dl_output_dir"]}/vcfs/{wildcards.tool}/combined_{wildcards.gene_list_name}_filterPASS.vcf.gz'
     elif any(varcall_tool):
@@ -103,20 +99,25 @@ def ev_get_expected_stats(wildcards):
     For induced_ref mapping based call validation
     """
     if wildcards.dataset_name.startswith("pf6"):
-        tools = [
-            "baseline",
-            #"cortex",
-            #"octopus",
-            "pf6",
-            #gram_adju,
-            #"gapfiller",
-            f"{gram_jointgeno}__pf6__analysis_set_fws95__gapfiller__7__13",
-            #f"{gram_jointgeno}__pf6__analysis_set_fws95__{gram_adju}__7__13",
-        ]
-        samples = cu_get_sample_names_fws_matching("pf6_analysis_set_fws95")
-    elif wildcards.dataset_name.startswith("pvgv"):
-        tools = [f"cortex", "paolo_pvgv", f"{gram_jointgeno}__pvgv__7__13"]
-        samples = cu_record_to_sample_names(cu_load_pvgv(config["pvgv_validation_tsv"]))
+        if wildcards.modality == "500":
+            tools = [
+                "baseline",
+                "cortex",
+                "octopus",
+                "pf6",
+                gram_adju,
+                "gapfiller",
+                f"{gram_jointgeno}__pf6__analysis_set_fws95__gapfiller__7__13",
+                f"{gram_jointgeno}__pf6__analysis_set_fws95__{gram_adju}__7__13",
+            ]
+            samples = cu_record_to_sample_names(cu_load_pf6(config["pf6_validation_tsv"]))
+        else:
+            tools = [
+                "baseline",
+                "pf6",
+                f"{gram_jointgeno}__pf6__analysis_set_fws95__gapfiller__7__13",
+            ]
+            samples = cu_get_sample_names_fws_matching("pf6_analysis_set_fws95")
     elif wildcards.dataset_name.startswith("pacb_ilmn_pf"):
         tools = [
             "baseline",
@@ -124,7 +125,7 @@ def ev_get_expected_stats(wildcards):
             "octopus",
             "pf7",
             gram_adju,
-            f"{gram_jointgeno}__pacb_ilmn_pf@pf6_analysis_set_fws95__7__13",
+            f"{gram_jointgeno}__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13",
             ]
         samples = cu_record_to_sample_names(cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"]))
     else:

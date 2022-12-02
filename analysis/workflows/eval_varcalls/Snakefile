@@ -1,7 +1,7 @@
 """
 Evaluates calls produced by various tools:
 - [cortex, gramtools_adjudication, gramtools_joint_genotyping] Uses the 14 samples with PACB assemblies and paired ILMN reads to assess calls made using the ILMN reads.
-- [cortex, GATK Barry lab, GATK pf6 malariaGEN, gramtools_adjudication, gramtools_joint_genotyping] Maps ILMN reads to genome with called variants applied and computes mapping statistics
+- [cortex, GATK pf6 malariaGEN, gramtools_adjudication, gramtools_joint_genotyping] Maps ILMN reads to genome with called variants applied and computes mapping statistics
 
 Refer to utils.py to configure which tools get evaluated.
 """
@@ -60,8 +60,10 @@ rule all:
             outputs=["stats.tsv", "plots/R_mean_NM.pdf"],
         ),
         induced_ref_mapping_stats_pf6=expand(
-            f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
-            dataset_name=["pf6",DS_NAME_ASSEMBLIES],
+            f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_{{modality}}.tsv",
+            modality=["500","all"],
+            #dataset_name=["pf6",DS_NAME_ASSEMBLIES],
+            dataset_name=["pf6"],
             gene_list=config["pf6_gene_lists"],
         ),
         assembly_annotations=expand(
@@ -294,7 +296,7 @@ rule ev_induced_ref_collect_all_stats:
     input:
         ev_get_expected_stats,
     output:
-        temp(f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_noheader.tsv"),
+        temp(f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_{{modality}}_noheader.tsv"),
     run:
         # Run in python as in shell the argument list is too long
         with open(output[0], "w") as fout:
@@ -309,7 +311,7 @@ rule ev_induced_ref_all_stats_add_header:
     input:
         rules.ev_induced_ref_collect_all_stats.output,
     output:
-        f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats.tsv",
+        f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_{{modality}}.tsv",
     shadow:
         "shallow"
     params:

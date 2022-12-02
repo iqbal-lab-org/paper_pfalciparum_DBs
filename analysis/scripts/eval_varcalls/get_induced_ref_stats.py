@@ -14,6 +14,9 @@ from numpy import absolute, mean, std
 from common_utils.shift_to_induced_genome_coords import translate_bed
 
 
+def Round(value):
+    return round(value, 5)
+
 def print_header(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
@@ -159,7 +162,7 @@ def get_fraction_leq_limit(values, limit):
     leq: less than or equal to
     """
     num_below = len([value for value in values if value <= limit])
-    return round(num_below / len(values), 3)
+    return Round(num_below / len(values))
 
 
 def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
@@ -180,8 +183,8 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
         mpileup_output,
     )
     depths = list(map(lambda line: int(line.split("\t")[3]), mpileup_output))
-    record["mean_read_coverage"] = round(mean(depths),3)
-    record["std_read_coverage"] = round(std(depths),3)
+    record["mean_read_coverage"] = Round(mean(depths))
+    record["std_read_coverage"] = Round(std(depths))
     if len(depths) > 0:
         for limit in [0, 4, 9]:
             record[f"fraction_positions_{limit}x_or_less"] = get_fraction_leq_limit(
@@ -201,7 +204,7 @@ def populate_stats_pileup(record, input_bam, input_ref_genome, region) -> None:
     if num_total == 0:
         return
     for limit in num_disagreeing:
-        record[f"fraction_disagreeing_pileup_min{limit}x"] = round(num_disagreeing[limit] / num_total, 3)
+        record[f"fraction_disagreeing_pileup_min{limit}x"] = Round(num_disagreeing[limit] / num_total)
 
 
 def populate_stats_reads(
@@ -234,11 +237,11 @@ def populate_stats_reads(
     if num_reads == 0:
         return
     for metric in read_stats:
-        read_stats[metric] = round(read_stats[metric] / (num_reads + 1), 3)
+        read_stats[metric] = Round(read_stats[metric] / (num_reads + 1))
     for limit in [0, 9, 29]:
         metric_name = f"fraction_reads_mapped_and_paired_mapq_{limit + 1}_or_more"
         if len(mapqs) > 0:
-            read_stats[metric_name] = round(1 - get_fraction_leq_limit(mapqs, limit), 3)
+            read_stats[metric_name] = Round(1 - get_fraction_leq_limit(mapqs, limit))
     for metric in read_stats:
         record[metric] = read_stats[metric]
     if insert_mean is not None:
@@ -247,7 +250,7 @@ def populate_stats_reads(
         if len(tlens) > 0:
             record[
                 "fraction_reads_above_mean_ins_size_plus_two_std"
-            ] = round(1 - get_fraction_leq_limit(tlens, insert_mean + 2 * insert_std), 3)
+            ] = Round(1 - get_fraction_leq_limit(tlens, insert_mean + 2 * insert_std))
             record[
                 "fraction_reads_below_mean_ins_size_minus_two_std"
             ] = get_fraction_leq_limit(tlens, insert_mean - 2 * insert_std)
