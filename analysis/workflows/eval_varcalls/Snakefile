@@ -6,6 +6,8 @@ Evaluates calls produced by various tools:
 Refer to utils.py to configure which tools get evaluated.
 """
 
+from glob import glob
+
 WORKFLOW = "eval_varcalls"
 DL_WORKFLOW = "download_data"
 CV_WORKFLOW = "call_variants"
@@ -30,6 +32,8 @@ output_bowtie2_pf = output_base / DS_NAME_ASSEMBLIES / "bowtie2"
 output_bowtie2_indexes = output_bowtie2_pf / "ref_indexes"
 output_ir = output_base / "induced_refs"
 output_assembly_annotations = output_base / "assembly_annotations"
+output_plots = output_base / "plots"
+output_tsvs = output_base / "tsvs"
 cu_mk_output_dirs(dir())
 
 cv_output_gapfiller = Path(f'{config["output_dir"]}/{CV_WORKFLOW}') / "gapfiller"
@@ -49,6 +53,7 @@ def ev_get_var_bed(wildcards):
 
 pacb_ilmn_records = [elem.sample_name for elem in cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])]
 GENE_LIST_NAME = "pf6_26_genes"
+IR_STAT_MODS = ["500","all"]
 
 
 rule all:
@@ -61,14 +66,16 @@ rule all:
         ),
         induced_ref_mapping_stats_pf6=expand(
             f"{output_ir}/{{dataset_name}}/{{gene_list}}/ir_stats_{{modality}}.tsv",
-            modality=["500","all"],
+            modality=IR_STAT_MODS,
             #dataset_name=["pf6",DS_NAME_ASSEMBLIES],
             dataset_name=["pf6"],
             gene_list=config["pf6_gene_lists"],
         ),
         assembly_annotations=expand(
                 f"{output_assembly_annotations}/{{sample_name}}.bed",
-                sample_name=pacb_ilmn_records)
+                sample_name=pacb_ilmn_records),
+        snp_solved_seqs=expand(f"{output_ir}/snp_solved_seqs/{{gene}}_single_SNP_solved.fasta",
+                gene=["DBLMSP","DBLMSP2"])
 
 
 rule ev_index_pacb_assemblies:
@@ -320,4 +327,35 @@ rule ev_induced_ref_all_stats_add_header:
         """
         python3 {params.script_induced_ref_stats} --header_only > header.tsv
         cat header.tsv {input} > {output}
+        """
+
+rule ev_plot_ir_stats:
+    input:
+        ir_stats_tsv_all=f"{output_ir}/pf6/pf6_26_genes/ir_stats_all.tsv",
+        ir_stats_tsv_500=f"{output_ir}/pf6/pf6_26_genes/ir_stats_500.tsv",
+        pacb_ilmn_tsv=f"{output_bowtie2_pf}/pf6_26_genes/stats.tsv",
+    output:
+        snp_solvable_tsv=f"{output_tsvs}/single_SNP_solvable_seqs.tsv",
+    params:
+        output_plots=output_plots,
+        output_tsvs=output_tsvs,
+        R_script=f'{config["scripts"]}/{WORKFLOW}/plot_ir_stats.R',
+    shell:
+        """
+        Rscript {params.R_script} {input.ir_stats_tsv_all} {input.ir_stats_tsv_500} {input.pacb_ilmn_tsv} {params.output_plots} {params.output_tsvs}
+        """
+
+rule ev_make_snp_solved_sequences:
+    input:
+        snp_solvable_tsv=rules.ev_plot_ir_stats.output,
+        induced_ref_dir=lambda _: glob(f"{output_ir}/pf6/pf6_26_genes/{gram_jointgeno}*gapfiller__7__13"),
+    output:
+        expand(f"{output_ir}/snp_solved_seqs/{{gene}}_single_SNP_solved.fasta",
+                gene=["DBLMSP","DBLMSP2"])
+    params:
+        script_solve_snps=f'{config["scripts"]}/{WORKFLOW}/solve_single_snps.py',
+        output_dir=f"{output_ir}/snp_solved_seqs"
+    shell:
+        """
+        python3 {params.script_solve_snps} {input.snp_solvable_tsv} {input.induced_ref_dir} {params.output_dir}
         """

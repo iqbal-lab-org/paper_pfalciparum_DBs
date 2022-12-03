@@ -26,9 +26,12 @@ def get_gene_region_from_bed(bed_fname, gene_name) -> str:
     return f"{interval.chrom}:{interval.start+ 1}-{interval.end}"
 
 
-def get_majority_base(mpileup_string):
-    result = Counter(mpileup_string.upper()).most_common()[0][0]
-    return result
+def get_most_freq_base_and_its_frequency(mpileup_string):
+    counter = Counter(mpileup_string.upper().replace(",","."))
+    most_common = counter.most_common()[0]
+    most_freq_base = most_common[0]
+    freq = most_common[1] / sum(counter.values())
+    return most_freq_base, freq
 
 
 @click.command()
@@ -47,36 +50,49 @@ def main(snp_solvable_tsv, induced_ref_dir, output_dir):
     new_gene_seqs = defaultdict(list)
 
     df = pd.read_csv(snp_solvable_tsv, sep="\t", index_col=None)
-    df.sort_values("sample", inplace=True)
-    prev_sname = None
     for row in df.iterrows():
         sname = row[1]["sample"]
         gene_name = row[1]["gene"]
-        if sname != prev_sname:
-            ir_files = get_induced_ref_file_names(induced_ref_dir, sname)
+        ir_files = get_induced_ref_file_names(induced_ref_dir, sname)
         gene_region = get_gene_region_from_bed(ir_files["bed"], gene_name)
         mpileups, depths, ref_seq = get_mpileups(
             ir_files["bam"], ir_files["fasta"], gene_region, output_ref_seq=True
         )
         assert all(map(lambda d: d >= 5, depths))
-        total_snp_positions = 0
+        total_non_ref_positions = 0
         result_seq = ""
-        for base, mpileup in zip(ref_seq, mpileups):
-            majority_base = get_majority_base(mpileup)
-            if pileup_mismatches(majority_base):
-                total_snp_positions += 1
-                result_seq += majority_base
+        solvable = True
+        for ref_base, mpileup in zip(ref_seq, mpileups):
+            most_freq_base, freq = get_most_freq_base_and_its_frequency(mpileup)
+            if pileup_mismatches(most_freq_base):
+                total_non_ref_positions += 1
+                if freq > 0.5:
+                    result_seq += most_freq_base
+                else:
+                    solvable = False
+                    break
             else:
-                assert pileup_matches(majority_base)
-                result_seq += base
-        assert total_snp_positions == 1
-        new_gene_seqs[gene_name].append(
-                f">{gene_name}_{sname}\n"
-                f"{result_seq}\n"
-        )
+                assert pileup_matches(most_freq_base)
+                assert freq >= 0.5
+                result_seq += ref_base
+        if total_non_ref_positions > 1:
+            print(
+            f"Sample {sname}, gene {gene_name} has {total_non_ref_positions}"
+            " non-reference positions; sequence not outputted."
+            )
+        elif not solvable:
+            print(
+            f"The SNP in sample {sname}, gene {gene_name} was not at freq > 0.5"
+            " ;sequence not outputted."
+            )
+        else:
+            new_gene_seqs[gene_name].append(
+                    f">{gene_name}_{sname}\n"
+                    f"{result_seq}\n"
+            )
     for gene_name, seqs in new_gene_seqs.items():
         ofname = Path(odir / f"{gene_name}_single_SNP_solved.fasta").open("w")
-        print(*seqs, file=ofname)
+        print(*seqs, sep="",file=ofname)
 
 if __name__ == "__main__":
     main()
