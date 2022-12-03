@@ -129,36 +129,6 @@ From: ubuntu:focal
     ln -sf $(pwd)/venv/bin/octopus /usr/bin/octopus
     rm -r venv/{pkgs,include}
 
-	#/*************/
-	#/* varifier  */
-	#/*************/
-    # varifier dependencies
-    cd ${HOME}
-    wget https://github.com/mummer4/mummer/releases/download/v4.0.0rc1/mummer-4.0.0rc1.tar.gz
-    tar xf mummer-4.0.0rc1.tar.gz
-    rm mummer-4.0.0rc1.tar.gz && cd mummer-4.0.0rc1 && ./configure 
-    make && make install
-    # enable linking to mummer shared lib
-    echo "/usr/local/lib" >> /etc/ld.so.conf 
-    ldconfig
-    cd .. && rm -r mummer-4.0.0rc1
-
-    apt-get install -y libvcflib-tools libcurl4-gnutls-dev libssl-dev
-
-    git clone https://github.com/atks/vt.git vt-git
-    cd vt-git
-    git checkout 2187ff6347086e38f71bd9f8ca622cd7dcfbb40c
-    make
-    cd .. && cp vt-git/vt /usr/local/bin/ && rm -r vt-git
-
-    cd ${HOME}
-    git clone https://github.com/iqbal-lab-org/varifier
-    cd varifier && git checkout 9f05477b5e48e96264c392fbd14ca98d1ed86e48
-    pip3 install .
-    cd .. && rm -r varifier
-
-	#/*************/
-
 
     ## seqkit (fasta manipulation)
     cd ${HOME}
@@ -197,9 +167,46 @@ From: ubuntu:focal
     ## IGV (genome sequence & alignment visualisation)
     cd ${HOME}
     wget https://data.broadinstitute.org/igv/projects/downloads/2.11/IGV_2.11.1.zip
-    unzip IGV_2.11.1 && ln -s ${HOME}/IGV_2.11.1/igv.sh /usr/bin/igv.sh
+    unzip IGV_2.11.1 && ln -s ${HOME}/IGV_2.11.1/igv.sh /usr/bin/igv.sh && rm IGV_2.11.1.zip
+
+    ## inkscape
+    cd ${HOME}
+    apt install libfuse2
+    wget -O /usr/bin/inkscape https://inkscape.org/gallery/item/34672/Inkscape-9c6d41e-x86_64.AppImage
+    chmod u+x /usr/bin/inkscape 
+
 
     ##### Currently tested ends here #######
+
+	#/*************/
+	#/* varifier  */
+	#/*************/
+    # varifier dependencies
+    cd ${HOME}
+    wget https://github.com/mummer4/mummer/releases/download/v4.0.0rc1/mummer-4.0.0rc1.tar.gz
+    tar xf mummer-4.0.0rc1.tar.gz
+    rm mummer-4.0.0rc1.tar.gz && cd mummer-4.0.0rc1 && ./configure 
+    make && make install
+    # enable linking to mummer shared lib
+    echo "/usr/local/lib" >> /etc/ld.so.conf 
+    ldconfig
+    cd .. && rm -r mummer-4.0.0rc1
+
+    apt-get install -y libvcflib-tools libcurl4-gnutls-dev libssl-dev
+
+    git clone https://github.com/atks/vt.git vt-git
+    cd vt-git
+    git checkout 2187ff6347086e38f71bd9f8ca622cd7dcfbb40c
+    make
+    cd .. && cp vt-git/vt /usr/local/bin/ && rm -r vt-git
+
+    cd ${HOME}
+    git clone https://github.com/iqbal-lab-org/varifier
+    cd varifier && git checkout 9f05477b5e48e96264c392fbd14ca98d1ed86e48
+    pip3 install .
+    cd .. && rm -r varifier
+
+	#/*************/
 
 
     ## seqtk (fasta/q manipulation)
