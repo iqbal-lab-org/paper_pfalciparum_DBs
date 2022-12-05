@@ -3,7 +3,9 @@ From: ubuntu:focal
 
 %setup
     mkdir ${SINGULARITY_ROOTFS}/setup_files
+    # Change this depending on whether building container for plaso_surfants or plasmo_paralogs
     rsync -a analysis/scripts/ ${SINGULARITY_ROOTFS}/plasmo_surfants_scripts
+    # rsync -a ../plasmo_paralogs/analysis/scipts ${SINGULARITY_ROOTFS}/plasmo_paralogs_scripts
 
 %files
     container/pyrequirements.txt /setup_files
@@ -38,7 +40,10 @@ From: ubuntu:focal
 	# python requirements of repo
 	pip3 install pip==20.0.2 
 	pip3 install -r /setup_files/pyrequirements.txt
+
+    # Change this depending on whether building container for plaso_surfants or plasmo_paralogs
     pip3 install -e /plasmo_surfants_scripts
+    # pip3 install -e /plasmo_paralogs_scripts
 
     # R requirements of repo
     Rscript /setup_files/Rpacks.R
