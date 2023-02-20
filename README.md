@@ -1,18 +1,49 @@
-# Rationale
+---
+title: Genotyping highly-variable *P.falciparum* genes
+author: Brice Letcher
+---
 
-This project genotypes malariaGEN samples using gramtools.
+# Summary
+
+This project genotypes malariaGEN samples at a set of specific *P. falciparum* genes, 
+using a genome-graph-based pipeline. See `docs/pf_genes.pdf` for a list and rationale of
+the genes picked for analysis.
+
+Two of these, DBLMSP and DBLMSP2, were analysed in detail, supporting the following publication:
+
+> Gene conversion drives allelic dimorphism in two paralogous surface antigens of the malaria parasite *P. falciparum*
+
+Some of the others are analysed a little bit more in my thesis:
+
+> Genome-graph based genotyping with applications to highly variable genes in *P. falciparum*. https://doi.org/10.17863/CAM.93368
+
+# Structure
+
+The project is divided into Snakemake workflows, at `analysis/workflows`.
+Code used by the workflows is in `analysis/scripts`.
+
+Reproducibility is mediated by a singularity container, whose definition is at
+`reproducibility/container/singu_def.def`.
+
+An additional repository is included in this project, as a git subtree, called
+`plasmo_paralogs`. That sub-project runs all the sequence analyses of DBLMSP and
+DBLMSP2, and is structured in the same way as this one (README.md, Snakemake workflows, scripts).
 
 # Workflows
 
 ## Constraints
 
-In each workflow I load a global configfile ("common.yaml") and a set of common python utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py", and "common_utils.py" must be loaded before other "utils.py".
+In each workflow I load a global configfile ("common.yaml") and a set of common python
+utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py",
+and "common_utils.py" must be loaded before other "utils.py".
 
 ## Conventions
 
 Inside workflows, functions prefixed with `cu_` come from `analysis/workflows/common_utils.py`
 
-Similarly, each workflow's own `analysis/workflows/<workflow_name>/utils.py` defines functions prefixed with a two-letter code: e.g. for `download_data`, functions will start with `dd_`.
+Similarly, each workflow's own `analysis/workflows/<workflow_name>/utils.py` defines
+functions prefixed with a two-letter code: e.g. for `download_data`, functions will
+start with `dd_`.
 
 
 ## Running a workflow
@@ -28,22 +59,22 @@ sh analysis/cluster_submit.sh
 
 Requirements: None
 
-#### Function
-3 main datasets:
+#### Purpose
+Downloads 3 main datasets (see `analysis/input_data/sample_lists` for input data TSVs):
 
-  * pf6: downloads all p. falciparum read sets from malariaGEN
-  * pvgv: downloads all p. vivax read sets from malariaGEN
-  * pacb_ilmn_pf: downloads paired illumina reads and pacbio assemblies for 15 samples,
-    from [Otto et al. (2018)][otto_2018]
+  * `pf6`: downloads all p. falciparum read sets from malariaGEN [pf6 release][pf6_release]
+  * `pacb_ilmn_pf`: downloads paired illumina reads and pacbio assemblies for 15 samples from [Otto et al. (2018)][otto_2018]
+  * `generational_samples`: downloads clone tree data from [Hamilton et al. (2017)][hamilton_2017] and crosses data (see paper for references)
 
 
 ### call_variants
 
 Requirements: download_data
 
-#### Function
+#### Purpose
+Performs genotyping using a range of tools.
 
-* (Variant calling) Runs cortex and octopus on all pf6, pvgv and pacb_ilmn_pf samples
+* (Variant calling) Runs cortex and octopus on all pf6 and pacb_ilmn_pf samples
 * (Genotyping) Adjudicates between cortex and octopus using gramtools
 * (Variant calling) Runs gapfiller on top of gramtools adjudicated output
 
@@ -51,14 +82,15 @@ Requirements: download_data
 
 Requirements: call_variants
 
-#### Function
+#### Purpose
 
+Evaluates variant calls, using two orthogonal strategies (see paper).
 
 ### make_prgs
 
 Requirements: call_variants
 
-#### Function
+#### Purpose
 
 * Makes a PRG (Population Reference Graph; aka genome graph) based on end output of call_variants workflow. Configurable parameters are:
        - Which pf6 samples to use for graph construction
@@ -70,7 +102,7 @@ Requirements: call_variants
 
 Requirements: make_prg
 
-#### Function
+#### Purpose
 
 Takes as input a genome graph made by make_prg, and runs gramtools genotyping on all specified samples.
 
@@ -78,10 +110,9 @@ Takes as input a genome graph made by make_prg, and runs gramtools genotyping on
 
 Requirements: joint_genotyping
 
-#### Function
+#### Purpose
 
-Produces sequences of all the genes in the gramtools-built and genotyped PRG. So-named
-because also concatenates paralog sequences together (e.g., DBLMSP and DBLMSP2)
+Produces sequences for use by `plasmo_paralogs` repository.
 
 ## Development
 
@@ -105,7 +136,9 @@ The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
 
 ## Reference genomes
 
-For *P. falciparum*, I have used the 2018-11 version for variant calling and graph building (ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/). pf6 used the 2016-07 version in their release VCFs (see pf6 paper). However, I checked the following:
+For *P. falciparum*, I have used the 2018-11 version for variant calling and graph
+building (ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/). pf6 used the
+2016-07 version in their release VCFs (see pf6 paper). However, I checked the following:
 
 * The two genomes have exactly the same chromosome sizes
 * The two annotation files (GFF) have exactly the same coordinates for pf6_26_genes
@@ -170,21 +203,6 @@ run IDs, but all samples were sequenced in single run (as per Miles et al. (2016
 
 See the [documentation](docs/pf_genes.pdf) for a list and rationale for the genes we chose to analyse.
 
-## Barry lab
-
-Use GATK best practices pipeline with slight modifications [preprint link][myo_1]
-
-### Myo's project
-
-i) Characterising the global diversity of P. falciparum surface antigens. [preprint link][myo_1]
-ii) Longitudinal study of children with asymptomatic/symptomatic malaria,
-and spotting allelic switches favouring symptomatic. [preprint link](https://www.medrxiv.org/content/10.1101/2020.09.16.20196253v1)
-
-In context of i), list of falciparum genes where GATK pipeline gave lots of null/low quality calls:
-
-LSA1 (PF3D7_1036400)
-LSA3 (PF3D7_0220000)
-DBLMSP1, DBLMSP2
-CSP (PF3D7_0304600) - NANP repeat region
-MSP2 (PF3D7_0206800) 
-MSP1 (PF3D7_0930300)
+[pf6_release]: https://doi.org/10.12688/wellcomeopenres.16168.1
+[hamilton_2017]: https://doi.org/10.1093/nar/gkw1259
+[otto_2018]: https://doi.org/10.12688/wellcomeopenres.14571.1
