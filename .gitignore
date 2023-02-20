@@ -1,0 +1,33 @@
+# scratch/preliminary work
+## for data/results
+tmp_work 
+## for scripts
+eda      
+
+# running
+venv
+.snakemake
+container/built
+analysis/outputs
+analysis/logs
+
+# input data
+analysis/input_data/analysed_sequences
+
+# python
+__pycache__
+*.egg-info
+.ipynb_checkpoints
+
+# Tex
+*/*lit_review*/img
+*/*lit_review*/built
+*.aux
+*.log
+
+# vim
+*~
+*.swp
+
+# other repos
+repos

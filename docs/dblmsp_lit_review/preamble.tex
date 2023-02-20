@@ -1,0 +1,19 @@
+%% Highlight important references; from https://tex.stackexchange.com/a/149753
+\usepackage[svgnames]{xcolor}
+\DeclareBibliographyCategory{important}
+% the colour definition
+\colorlet{impentry}{Maroon}% let 'impentry' = Maroon
+
+% Inform biblatex that all books in the 'important' category deserve
+% special treatment, while all others do not
+\AtEveryBibitem{%
+  \ifcategory{important}%
+    {\bfseries\color{impentry}}%
+    {}%
+  }
+
+% Add books to 'important' category in preamble
+\addtocategory{important}{%
+ Wright2014,
+ Crosnier2016
+}

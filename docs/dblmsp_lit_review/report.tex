@@ -1,0 +1,316 @@
+\documentclass[12pt]{article}
+
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{hyperref}
+\RequirePackage{cleveref}
+\RequirePackage[
+    backend=biber,
+    %citestyle=number,
+    style=numeric
+]{biblatex}
+\RequirePackage{graphicx}
+
+\include{preamble}
+
+\addbibresource{report.bib}
+
+\title{Literature review on DBLMSP and DBLMSP2 in \textit{Plasmodium}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\subsection*{Conventions}
+
+Throughout the report I refer to DBLMSP and DBLMSP2 as \textbf{DBs}.
+
+All gene names use the stable IDs from \href{https://plasmodb.org/plasmo/app/}{PlasmoDB} release 53.
+
+Important references are highlighted in the bibliography.
+
+\section{Current state of knowledge relevant to DBs}
+
+\subsection{Genomic location and domain structure of DBs}
+
+In \textit{P. falciparum}, DBLMSP and DBLMSP2 are two genes located 16kbp apart on
+chromosome 10 (DBLMSP: Pf3D7\_10\_v3:1,412,641..1,416,363(+); DBLMSP2:
+Pf3D7\_10\_v3:1,432,498..1,434,786(+)). They are part of a set of 8 tandemly arrayed
+genes spanning 32kbp on chromosome 10 that all share an N-terminal `NLRNA/G'
+sequence~\cite{singh_conserved_2009}. \cite{singh_conserved_2009} call them `MSP3-like',
+and proposed renaming them MSP3.1-MSP3.8. In this system MSP3.4 and MSP3.8 are the names
+for what is now stably referred to as DBLMSP and DBLMSP2, respectively. Six of the eight
+genes, including DBLMSP and DBLMSP2, possess a polymorphic C-terminal domain called SPAM
+(\cite{MCCOLL199453}; \href{http://pfam.xfam.org/family/PF07133}{Pfam: PF07133}). In MSP3
+(MSP3.1 in the MSP3-like classification), SPAM was found to mediate protein
+oligomerisation~\cite{gondeau_c-terminal_2009}. The genes GLURP and LSA-1 are located
+5' and 3' of the MSP3-like gene cluster, respectively. 
+
+In contrast to the other MSP3-like genes, DBs also possess a Duffy-Binding Like (DBL)
+domain (\href{http://pfam.xfam.org/family/PF05424}{Pfam: PF05424}), located between the
+N-terminal NLR sequence and C-terminal SPAM. DBL is named after the initial discovery
+that \textit{Plasmodium vivax} requires the so-called Duffy antigen/chemokine receptor
+(DARC) on human red-blood cells for cell invasion~\cite{Miller561}. In \textit{P. vivax}
+and \textit{P. knowlesi}, a gene called Duffy Binding Protein (DBP) is responsible for binding DARC. 
+
+
+\subsection{DBL domains in \textit{P. falciparum}}
+
+In addition to the DBs, the DBL domain is present in a number of other \textit{P.
+falciparum} (\textit{Pf}) proteins. EBA175 was first identified as a protein mediating
+RBC invasion via binding to the RBC receptor glycophorin A (GYPA)~\cite{Orlandi1992}, a
+RBC surface glycoprotein (`glyco' means sugars attached). EBA175 binding requires a
+sialic acid (e.g. Neu5Ac) attached to GYPA~\cite{Orlandi1992}, and antibodies raised
+against EBA175 inhibit merozoite invasion of RBCs~\cite{Sim1990}. EBA175 contains two
+tandemly arrayed DBL domains~\cite{Adams7085} called F1 and F2 that mediate GYPA
+binding~\cite{Tolia2005}.  A number of genes paralogous to EBA175 exist that also have
+tandem F1/F2 DBL domains: EBA140, EBA165, EBA181,
+EBL1(\cref{fig:EBA_DBLs};~\cite{Adams2001}). EBA140 also mediates merozoite invasion of
+RBCs~\cite{Mayer5222} by binding to the lycophorin C receptor linked to sialic
+acid~\cite{Lobo2003}. EBA165 is functional in all \textit{Laverania} species but is
+inactivated in \textit{Pf} and is thus a pseudogene~\cite{Proto2019}. EBL1 and EBA181 are
+less well understood. EBL1 may bind to glycophorin B~\cite{Jaskiewicz2019}, and EBA181
+binds RBCs but the receptor is unknown~\cite{Gilberger2003}.
+
+The presence of multiple EBA paralogs is thought to mediate functional redundancy,
+allowing merozoites from different strains to invade RBCs with different surface
+receptors (e.g. lacking glycophorin A and B~\cite{Hadley1987}) or differently modified
+surface receptors (e.g. with sialic acid removed~\cite{Mitchell1986,Stubbs2005}).
+Alternative use of different EBAs for invasion was also shown to be epigenetically
+mediated for EBA-140, with expression switched on or off across isogenic
+subclones~\cite{Corts2007}. Another
+paralogous family or proteins, the reticulocyte-binding homologs (RH), is located in the
+same apical organelles as EBAs (rhoptries and micronemes). RHs are also involved in RBC invasion
+and displays functional redundancy~\cite{Gunalan2012}. RHs and EBAs are thought to
+function cooperatively in RBC invasion~\cite{Lopaticki2011}. Because both protein
+families are recognised by the immune system, alternative invasion pathways likely
+provide adaptability against immune system targeting of specific
+proteins~\cite{Wright2014}.
+
+\begin{figure}
+    \includegraphics[width=\textwidth]{img/EBA_DBLs.jpg}
+    \caption{DBL domains in the erythrocyte-binding like gene family. F1 and F2 are tandem 
+    DBL domains homologous to \textit{P. vivax} DBL. All genes except EBL1 possess a
+    conserved C-terminal cysteine rich domain. ID mapping: EBA181(\textit{jesebl}),
+    EBA165(pebl), EBA140(baebl). Source:~\cite{Adams2001}.
+    }
+    \label{fig:EBA_DBLs}
+\end{figure}
+
+DBL domains are also found in the \textit{var} genes, a family of paralogs specific to
+the subgenus \textit{Laverania}~\cite{Otto2018,otto_evolutionary_2019} (of which
+\textit{Pf} is a member, but not \textit{P. vivax}).  \textit{var} genes are mostly
+located in chromosome subtelomeres, with ~60 copies in the \textit{Pf}
+genome~\cite{Su1995,Gardner2002}. During the ring stage of the intraerythrocytic 
+cycle (IEC), \textit{Pf} expresses only one or a few \textit{var} genes at a time, and during
+the schizont and trophozoite stages of the IEC, a single \textit{var} protein
+product (called \textit{PfEMP1}) is found exported at the surface of the
+iRBC~\cite{Chen1998}. The 5' end of \textit{var} genes contains multiple DBL and CIDR
+domains mediating adherence to other cells (\cref{fig:var_DBLs}). PfEMP1 allows iRBS to
+bind to uninfected red blood cells (rosetting), endothelial cell receptors in tissues,
+and to platelets enabling iRBC clumping~\cite{Miller2002}. The specific combination of
+DBL and CIDR domains determines the set of bound human receptors and is associated with
+malaria disease severity [TODO citations].  Different domain combinations are produced
+via meiotic recombination during sexual reproduction~\cite{Su1999}, but also by
+non-allelic recombination~\cite{FreitasJunior2000} during mitosis~\cite{Duffy2009} (and
+thus during a single infection). Recombination occurs in a structured way between
+subgroups of \textit{var} genes based on genomic context (subtelomeric, central), gene
+orientation and flanking non-coding sequence~\cite{Kraemer2003}.  Of all the DBL/CIDR
+domains, only DBL-$\alpha$ is found in every \textit{var} gene~\cite{Smith2000}.
+
+\begin{figure}
+    \includegraphics[width=1.1\textwidth]{img/var_DBLs.jpg}
+    \caption{DBL domains in the \textit{var} gene family. 
+    \textit{var} genes have a N-terminal segment (NTS), transmembrane (TM) domain and
+    acidic terminal segment (ATS),
+    and \textit{var} types are assigned by combination of DBL and CIDR domains. The left-hand
+    panel gives counts of \textit{var} types in the \textit{Pf} 3D7 genome by
+    promoter type (\textit{UpsA}-\textit{UpsE}). 
+    The bottom panel lists bound human proteins.  Source:~\cite{Kraemer2006}.
+    }
+    \label{fig:var_DBLs}
+\end{figure}
+
+PfEMP1 is recognised by the human immune system [TODO: cite]. \textit{Pf} evades immune
+system recognition and clearance by switching which \textit{var} gene is expressed during
+the course of infection~\cite{Roberts1992}. [TODO epigenetically mediated].
+
+\subsection{Biological function of DBs}
+\subsubsection{DB localisation and RBC binding}
+
+DBLMSP is expressed at the late schizont and merozoite stages and localises to the merozoite surface~\cite{wickramarachchi_novel_2009}.
+\cite{wickramarachchi_novel_2009} showed that COS7 (monkey-derived) cells made to
+express the DBL and SPAM domains of DBLMSP bound RBCs. Binding was
+abolished by treating RBCs with trypsin or neuraminidase or by adding immune sera
+from DBLMSP-immunised mice. Using ELISA,~\cite{wickramarachchi_novel_2009} also showed
+recombinant DBL and SPAM domains were both bound by human immune sera from
+malaria-exposed, but not malaria-naive, individuals. This suggests DBLMSP is involved in
+RBC binding by merozoites. However, \textit{in vitro} RBC invasion is only reduced by
+25\% in the presence of high levels of anti-DBLMSP antibodies(\cite{Sakamoto2012} Fig. 4B), and RBC
+invasion efficiency is not reduced in DBLMSP knock-out parasite lines~\cite{Sakamoto2012,Crosnier2016}, showing DBLMSP is not
+essential for RBC invasion.
+
+\cite{Hodder2012} find DBLMSP2 is expressed on
+the surface of schizonts and merozoites using anti-DBLMSP2 antibodies, and that
+full-length DBLMSP2 and the DBL domain only bind to RBCs. There are potential 
+caveats to these results. In contrast to~\cite{wickramarachchi_novel_2009}, who
+expressed DBLMSP on COS7 cells and assayed RBC binding,~\cite{Hodder2012} added purified
+DBLMSP2 to RBCs together with \textit{Pf} post-invasion culture supernatant,
+so the DBLMSP2 in pulldowns could have been in complex with other \textit{Pf} proteins
+binding to RBCs.~\cite{Hodder2012} also do not find that DBLMSP binding to RBCs is
+trypsin or neuraminidase sensitive, whereas~\cite{wickramarachchi_novel_2009} do.
+Finally, Gavin Wright and Cecile Crosnier at the Sanger Institute could not replicate
+DBLMSP2 binding to RBCs (unpublished, personal communication). 
+
+\subsubsection{DBLMSP2 and gametocytogenesis}
+DBLMSP2 transcripts are present at very low levels in bulk RNA-seq of clinical and
+laboratory isolates (\cite{Otto2010} Sup. Table S3,~\cite{AmambuaNgwa2012}).
+Using immunofluorescent labeling of DBLMSP2,~\cite{AmambuaNgwa2012} showed that DBLMSP2
+is only present on the surface of a minority of schizonts (\cref{fig:dblmsp2_cellsurfexp}).
+This is consistent with repressive chromatin factors being found at the DBLMSP2
+locus: histone mark H3K9me3~\cite{LopezRubio2009} and heterochromatin protein 1
+(HP1;~\cite{Fraschka2018}). These marks are not widespread in the genome and are typically
+associated with clonally variant expression of virulence gene families
+(e.g. \textit{var},\textit{rif},\textit{stevor},\textit{clag}~\cite{LopezRubio2009}). In
+\textit{Pf}, HP1 epigenetically regulates both the single, mutually exclusive expression of
+\textit{var} genes and sexual commitment via the induction of the
+\textit{ap2-g} transcription factor~\cite{Brancucci2014}, which is essential for sexual
+differentiation of \textit{Pf} into gametocytes~\cite{Kafsack2014}. HP1 forms a complex with
+the \textit{PfGDV1} protein~\cite{Filarsky2018}, another early marker of gametocytogenesis~\cite{Eksi2012}.
+Consistent with this,~\cite{Filarsky2018} found that conditional activation of \textit{PfGDV1} induces \textit{ap2-g}
+expression and gametocytogenesis, likely by antagonising HP1-based repression.
+Remarkably, DBLMSP2 is one of the 8 genes induced by \textit{PfGDV1}
+(~\cite{Filarsky2018} Fig. 2). However, in two other studies DBLMSP2 did not appear as part of the transcriptional
+signature of sexual committment defined using single-cell RNA-seq (\cite{Poran2017} Supplementary Table
+3;~\cite{Brancucci2018} Supplementary File 2). It is thus unclear still whether DBLMSP2
+plays a role in gametocytogenesis.
+
+\subsubsection{DBLMSP2 and drug resistance}
+DBLMSP2 has also been implicated in drug resistance. A GWAS study using SNP array
+genotyping found variants in DBLMSP2 associated with resistance to the antimalarial
+halofantrine~\cite{VanTyne2011}. \cite{VanTyne2011} functionally validated the
+association by showing that episomal (plasmi-mediated) DBLMSP2 overexpression increases
+resistance to halofantrine and structurally related compounds (mefloquine and
+lumefantrine), and that \textit{Pf} strains with higher DBLMSP2 copy-number are also
+more resistant. Given that DBLMSP and DBLMSP2 occur in tandem and can share
+sequence~\cite{maciuca_analysis_2017}, I think WGS-based CNV quantification is 
+required to validate cross-strain CNV differences in DBLMSP2.
+Subsequently,~\cite{VanTyne2013} found that knocking-out DBLMSP2 reduced $IC_{50}$ (drug
+concentration giving a 50\% parasite growth reduction) to the
+these three antimalarials by about 50\%, and that a specific SNP (C591S) in the SPAM domain
+approximately doubles $IC_{50}$ for all three antimalarials.
+
+\begin{figure}
+    \includegraphics[width=1.1\textwidth]{img/dblmsp2_cellsurfexp.png}
+    \caption{DBLMSP2 is expressed in a subset of schizonts.
+    (A) DAPI (parasite nuclear DNA) and DBLMSP2 immunofluorescent staining with
+    anti-DBLMSP2 antibodies shows DBLMSP2 is present at the surface of a small number of
+    schizonts in three independent cultured isolates (HB3, K1, D6). (B) The HB3 parasite 
+    line has the highest fraction of DBLMSP2-positive schizonts.
+    Source:~\cite{AmambuaNgwa2012}
+    }
+    \label{fig:dblmsp2_cellsurfexp}
+\end{figure}
+ 
+\subsubsection{DB complex formation}
+All six `MSP3-like' proteins (which includes the DBs) localise to the merozoite
+surface~\cite{singh_conserved_2009}. Despite this, all
+`MSP3-like' proteins lack transmembrane domains and GPI anchors characteristic of membrane-anchored proteins. 
+One `MSP3-like' protein, MSP6, was found to occur bound to GPI-mediated
+membrane-anchored MSP1~\cite{Trucco2001}. This was also found for another merozoite
+surface protein, MSP7~\cite{Pachebat2001}. Subsequently,~\cite{Lin2014} found that DBs
+are also found in complex with MSP1. MSP1 is the most abundant merozoite surface
+protein~\cite{Gilson2006} 
+and is proteolytically processed into four, non-covalently linked subunits
+during merozoite maturation. Upon merozoite entry into RBCs, the MSP1 complex is cleaved by the
+PfSUB2 protease~\cite{Harris2005}, leaving the GPI-anchor MSP1 fragment bound to the merozoite
+surface while the rest is shed~\cite{blackman_single_1990,Harris2005}. Antibodies
+against MSP1 block invasion~\cite{blackman_single_1990} and are associated with
+protection from malaria~\cite{Osier2008}.
+AMA1, a microneme protein involved in
+merozoite reorientation post RBC attachment and a major vaccine target, is also shed
+following PfSUB2 cleavage~\cite{Harris2005}. Interestingly, EBA175 is also shed post-merozoite invasion
+via proteolytic cleavage by the PfROM4 protein~\cite{ODonnell2006}. Subsequent work showed
+shed EBA175 mediates uninfected RBC clustering via its two tandem DBL domains, 
+and that RBC clustering enhances merozoite reinfection and
+immune system evasion~\cite{Paing2018} (see \cref{fig:eba175_shed} for an illustrative model).
+
+\begin{figure}
+    \includegraphics[width=.7\textwidth]{img/eba175_shed.jpg}
+    \caption{EBA175 shed from merozoites post RBC invasion mediates RBC clustering.
+    Model from~\cite{Paing2018}. The two DBL domains from EBA175 mediate RBC clustering
+    by binding to GYPA on the RBC surface.  RBC clustering reduced antibody-based
+    (anti-AMA1 and anti-RH5) growth inhibition (illustrated in d) and enhanced parasite
+    growth (illustrated in e).
+    }
+    \label{fig:eba175_shed}
+\end{figure}
+
+
+\subsubsection{Immune system interactions}
+
+\cite{singh_conserved_2009} find IgGs in immune serum from people in malaria-endemic Senegal react against a
+conserved C-terminal region in all six `MSP3-like' proteins, suggesting cross-reactive immunity to
+all can arise.
+
+No RBC binding partners for DBs have been identified to date, and conflicting evidence
+exists regarding what kind of RBCs DBs bind (\cite{wickramarachchi_novel_2009} vs~\cite{Hodder2012}).
+Further, from personal communication, Cecile Crosnier and Gavin Wright did not observe DB binding
+to RBCs.
+
+\subsection{Genetic diversity of DBs}
+
+
+\clearpage
+
+\section{Questions of interest around DBs}
+$\delta$: doable
+$\epsilon$: uncertain
+%$\mu$: unlikely
+
+\subsection{Biological function}
+\begin{enumerate}
+    \item{[$\delta$] What is the sequence and structure relationship between DBL domain in DBs and other Pf DBL domains?
+        (see~\cite{Rask2010} for an analysis of DBL homology blocks, with MEME motifs,
+        showing parallel between EBA-175 and VAR2CSA DBL structures (Fig.5))
+        }
+    \item{[$\epsilon$] Can we identify putative human protein interactants, can we dock
+        DBs to them, and can we evaluate goodness of fit compared to known DBL-human
+        protein interactions?}
+    \item{[$\epsilon$] Can we find putative structural interactants expressed in human
+        cell types likely to be in DB environment when DBs are expressed? (e.g. bone
+        marrow for DBLMSP2 in early gametocytes}
+    \item{[$\delta$] How often are DBs not functional (nonsense mutations) in natural
+        pops, and is there a diff. between DBLMSP and DBLMSP2? (Note 
+        premature stop codons are known in DBLMSP: \cite{Tetteh2009};
+        ~\cite{ochola_allele_2010} Table 1)}
+    \item{[$\delta$] What is the phylogenetic distribution of DBs?
+        }
+\end{enumerate}
+
+\subsection{Location of polymorphisms}
+\begin{enumerate}
+    \item{[$\delta$] Do we see conserved/hypervariable sites at the DNA level?}
+    \item{[$\delta$] Can we map polymorphisms onto DB structures and identify
+        structurally conserved or variable regions? (BioStruct can do
+        this~\cite{Guy2018a}, see~\cite{Guy2018b} for examples in \textit{Pf}}
+\end{enumerate}
+\subsection{Gene conversion and recombination}
+\begin{enumerate}
+    \item{[$\epsilon$] Can we identify and quantify gene conversion events between DBs?
+        (Note, could maybe also do this in tandemly arrayed genes clag 3.1 and clag 3.2,
+        this has been observed in~\cite{Iriko2008})
+        }
+\end{enumerate}
+\subsection{Drug resistance}
+\begin{enumerate}
+    \item{[$\delta$] Is the drug resistance SNP in DBLMSP2 SPAM domain found in DBLMSP
+        sequences (or other `MSP3-like' proteins with SPAM domains)?
+        }
+\end{enumerate}
+
+
+
+\clearpage
+\printbibliography
+
+\end{document}
