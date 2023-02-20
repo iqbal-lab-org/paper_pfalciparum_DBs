@@ -1,0 +1,181 @@
+from glob import glob
+
+WORKFLOW = "analysed_sequences"
+
+
+configfile: "analysis/configs/common.yaml"
+
+
+container: config["container_gramtools"]
+
+include: "../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
+
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+
+
+# EBA175 has four exons- we'll only analyse the first (and largest one). See PlasmoDB: PF3D7_0731500
+EBA175_EXON1_PATTERN = '(MKCNI).*(FRKEAFS)'
+
+DBL_protein_start, DBL_protein_end = cu_load_DBL_coords(SEQTYPES[1])
+
+
+rule all:
+    input:
+        msas=expand(
+            f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+            paralog_abbrev=config["paralog_abbrevs"],
+            seqtype=["dna", "protein"],
+            tool_name=TOOL_NAMES
+        ),
+        cdhit_clusters=expand(
+                f"{output_base}/{{tool_name}}/DBs/{{seqtype}}/cd_hit/{DBL_protein_start}_{DBL_protein_end}__{{paralog_abbrev}}__thresh{{thresh}}_cdhit.{{ext}}",
+                tool_name=TOOL_NAMES[0],
+                ext=["fa","fa.clstr","msa"],
+                thresh=[94, 96, 98],
+                seqtype=SEQTYPES,
+                )
+
+
+rule as_filter_genes_by_stat:
+    input:
+        dna_seqs=lambda wildcards: glob(
+            f'{config["input_data"]}/{WORKFLOW}/pf6/{wildcards.paralog_abbrev}_{wildcards.tool_name}*.fa'
+        ),
+        ir_stats=f'{config["sqlite_fnames"]["ir_stats"]}',
+        snp_solved_seqs=config["DBs_single_snp_solved_seqs"]
+    output:
+        filtered_dna_seqs=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
+        dedup_dna_seqs=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_dedup.fa",
+        dedup_tsv=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}_dedup.tsv",
+    params:
+        filtering_script=f'{config["scripts"]}/{WORKFLOW}/filter_genes.py',
+        deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
+        tool_name=as_get_tool_name,
+    shadow:
+        "shallow"
+    shell:
+        """
+        mkdir -p $(dirname {output.filtered_dna_seqs})
+        python3 {params.filtering_script} {input.dna_seqs} {input.ir_stats} filtered_seqs.fa --gene_group_name {wildcards.paralog_abbrev} --tool_name {params.tool_name}
+        if [[ {wildcards.tool_name} == "malariaGEN" ]]; then
+            seqkit grep -v -p "\*" -s -r filtered_seqs.fa > {output.filtered_dna_seqs}
+        else
+            if [[ {wildcards.paralog_abbrev} == "DBs" ]]; then
+                cat filtered_seqs.fa {input.snp_solved_seqs} > {output.filtered_dna_seqs}
+            else
+                cp filtered_seqs.fa {output.filtered_dna_seqs} 
+            fi
+        fi
+        python3 {params.deduplication_script} {output.filtered_dna_seqs} {output.dedup_dna_seqs}
+        """
+
+
+rule as_translate_to_protein:
+    input:
+        dna_seqs=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/dna/{{paralog_abbrev}}.fa",
+    output:
+        translated_protein=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}.fa",
+        translated_premature_stops=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_premature_stops.fa",
+        translated_dedup=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_dedup.fa",
+        translated_dedup_tsv=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/protein/{{paralog_abbrev}}_dedup.tsv",
+    params:
+        translation_script=f'{config["scripts"]}/{WORKFLOW}/translate.py',
+        deduplication_script=f'{config["scripts"]}/{WORKFLOW}/deduplicate.py',
+        eba175_exon1_pattern = EBA175_EXON1_PATTERN
+    shell:
+        """
+        mkdir -p $(dirname {output.translated_protein})
+        if [[ {wildcards.paralog_abbrev} == "EBA175" ]];then
+            python3 {params.translation_script} {input.dna_seqs} {output.translated_protein} --fstops {output.translated_premature_stops} --aa_regexp '{params.eba175_exon1_pattern}'
+        else
+            python3 {params.translation_script} {input.dna_seqs} {output.translated_protein} --fstops {output.translated_premature_stops}
+        fi
+        python3 {params.deduplication_script} {output.translated_protein} {output.translated_dedup}
+        """
+
+
+rule as_make_msa:
+    input:
+        input_seqs=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_dedup.fa",
+    output:
+        msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_dedup.msa",
+    resources:
+        mem_mb=5000,
+    shell:
+        """
+        mafft {input.input_seqs} > {output.msa}
+        """
+
+
+rule as_de_dedup_msa:
+    """
+    We run msa building on unique msa seqs, but re-add the duplicates, with identical alignment, in this step
+    """
+    input:
+        dedup_msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_dedup.msa",
+        dedup_tsv=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_dedup.tsv",
+    output:
+        full_msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full.msa",
+    params:
+        dededup_script=f'{config["scripts"]}/{WORKFLOW}/add_duplicates_to_msa.py',
+    shell:
+        """
+        python3 {params.dededup_script} {input.dedup_msa} {input.dedup_tsv} {output.full_msa}
+        """
+
+
+rule as_add_pacb_ilmn_samples_to_msa:
+    input:
+        msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full.msa",
+        pacb_ilmn_seqs=f'{config["input_data"]}/{WORKFLOW}/pacb_ilmn_pf/{{paralog_abbrev}}_otto_assemblies.fa'
+    output:
+        msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+    params:
+        translation_script=f'{config["scripts"]}/{WORKFLOW}/translate.py',
+        eba175_exon1_pattern = EBA175_EXON1_PATTERN
+    resources:
+        mem_mb=5000,
+    shadow:
+        "shallow"
+    shell:
+        """
+        if [[ {wildcards.seqtype} == protein ]]; then
+            if [[ {wildcards.paralog_abbrev} == "EBA175" ]];then
+                python3 {params.translation_script} {input.pacb_ilmn_seqs} input_data.fa --aa_regexp '{params.eba175_exon1_pattern}'
+            else
+            python3 {params.translation_script} {input.pacb_ilmn_seqs} input_data.fa
+            fi
+        else
+            cp {input.pacb_ilmn_seqs} input_data.fa
+        fi
+        mafft --add input_data.fa {input.msa} > {output}
+        """
+
+
+rule as_trim_msa:
+    input:
+        msa=rules.as_add_pacb_ilmn_samples_to_msa.output.msa
+    output:
+        fa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/trimmed/{{start}}_{{end}}__{{paralog_abbrev}}.fa"
+    shell:
+        """
+        mkdir -p $(dirname {output.fa})
+        seqkit subseq {input.msa} -r {wildcards.start}:{wildcards.end} | seqkit replace -p "-" -r "" -s > {output.fa}
+        """
+
+rule pp_cdhit:
+    input:
+        fa=rules.as_trim_msa.output.fa
+    output:
+        clusters=expand(f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/cd_hit/{{start}}_{{end}}__{{paralog_abbrev}}__thresh{{thresh}}_cdhit.{{ext}}",ext=["fa","fa.clstr","msa"],allow_missing=True),
+    params:
+        threshold = lambda w: int(w.thresh) / 100
+    shell:
+        """
+        mkdir -p $(dirname {output.clusters[0]})
+        cd-hit -i {input.fa} -o {output.clusters[0]} -c {params.threshold}
+        mafft {output.clusters[0]} > {output.clusters[2]}
+        """
+

@@ -1,0 +1,3 @@
+Feature	Gene	protein_ref_coords	protein_MSA_coords	dna_ref_coords	dna_MSA_coords
+DBL_Pfam	DBLMSP	185:301	217:337	553:903	626:989
+DBL_operational	DBLMSP	115:343	146:379	361:1022	430:1107

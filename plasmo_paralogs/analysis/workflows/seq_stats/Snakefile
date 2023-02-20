@@ -1,0 +1,248 @@
+AS_WORKFLOW = "analysed_sequences"
+WORKFLOW = "seq_stats"
+
+configfile: "analysis/configs/common.yaml"
+
+container: config["container_gramtools"]
+
+include: "../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_sqlite = output_base / "sqlite"
+output_mosaic = output_base / "mosaic"
+output_sharing = output_base / "sequence_sharing"
+output_conversion = output_base / "conversion_clusters"
+output_partition = output_base / "msa_partition"
+output_clustering_trees = output_base / "clustering_trees"
+as_output_base = Path(f'{config["output_dir"]}/{AS_WORKFLOW}')
+cu_mk_output_dirs(dir())
+
+
+SQLITE_DB = output_sqlite / f"{WORKFLOW}.sqlite"
+MOSAIC_REC_RANGE = [elem / 1000 for elem in range(101)]
+
+
+SHARING_SCRIPTS = f'{config["scripts"]}/{WORKFLOW}/sharing'
+DBL_protein_start, DBL_protein_end = cu_load_DBL_coords(SEQTYPES[1])
+
+rule all:
+    input:
+        mosaic_plot_dirs=expand(
+            f"{output_mosaic}/{{tool_name}}/DBs/protein/plots_{DBL_protein_start}_{DBL_protein_end}__DBs__thresh{{thresh}}/done.txt",
+            tool_name = TOOL_NAMES[0],
+            thresh=[96],
+        ),
+        homozygosities=expand(
+                    f"{output_base}/homozygosities/{{tool_name}}_{{paralog_abbrev}}_{{seqtype}}_done.txt",
+                    tool_name = TOOL_NAMES,
+                    paralog_abbrev=config["paralog_abbrevs"],
+                    seqtype = SEQTYPES[1],
+        ),
+        sharing=expand(
+                    f"{output_sharing}/{{tool_name}}_DBs_{{seqtype}}_done.txt",
+                    tool_name = TOOL_NAMES[0],
+                    seqtype = SEQTYPES[1],
+        ),
+        imported_tables=f"{output_sqlite}/imported_data_tables.txt",
+        conv_clusters=f"{output_conversion}/{DBL_protein_start}_{DBL_protein_end}/high_share_samples_clustered.pdf",
+        hmms_partition=expand(
+                f"{output_partition}/{{gene_name}}_k10_{DBL_protein_start}_{DBL_protein_end}.hmm",
+                gene_name = ["DBLMSP","DBLMSP2"]
+        ),
+        clustering_tree=f"{output_clustering_trees}/DBs_{DBL_protein_start}_{DBL_protein_end}/clustering_tree.nwk"
+
+
+
+rule sqs_import_data_tables:
+    input:
+        tables = list(config["sqlite_fnames"].values())
+    output:
+        touch(f"{output_sqlite}/imported_data_tables.txt")
+    params:
+        db=SQLITE_DB,
+        table_names = list(config["sqlite_fnames"].keys())
+    shell:
+        """
+        sqlite3 {SQLITE_DB}<<EOF
+.mode tabs
+DROP TABLE IF EXISTS {params.table_names[0]};
+.import {input.tables[0]} {params.table_names[0]}
+DROP TABLE IF EXISTS {params.table_names[1]};
+.import {input.tables[1]} {params.table_names[1]}
+DROP TABLE IF EXISTS {params.table_names[2]};
+.import {input.tables[2]} {params.table_names[2]}
+DROP TABLE IF EXISTS {params.table_names[3]};
+.import {input.tables[3]} {params.table_names[3]}
+.quit
+EOF
+        """
+
+rule sqs_compute_homozygosities:
+    input:
+        protein_msa=f"{as_output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+    output:
+        temp(f"{output_base}/homozygosities/{{tool_name}}_{{paralog_abbrev}}_{{seqtype}}_done.txt"),
+    params:
+        db=SQLITE_DB,
+        h_script=f'{config["scripts"]}/{WORKFLOW}/compute_homozygosity.py',
+    shell:
+        """
+        dirname=$(dirname {output})
+        mkdir -p $dirname
+        python3 {params.h_script} {input.protein_msa} -s {params.db} --seqtype {wildcards.seqtype} --gene_name {wildcards.paralog_abbrev} --tool_name {wildcards.tool_name}
+        touch {output}
+        """
+
+rule sqs_compute_sharing_stats:
+    input:
+        protein_msa=f"{as_output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+    output:
+        f"{output_sharing}/{{tool_name}}_{{paralog_abbrev}}_{{seqtype}}_done.txt",
+    params:
+        db=SQLITE_DB,
+        geo_def_script=f'{SHARING_SCRIPTS}/shared_definition_by_geo.py',
+        sample_assignment_script=f'{SHARING_SCRIPTS}/shared_assignment_by_sample.py',
+    shell:
+        """
+        dirname=$(dirname {output})
+        mkdir -p $dirname
+        python3 {params.geo_def_script} {input.protein_msa} -s {params.db} --seqtype {wildcards.seqtype} --gene_name {wildcards.paralog_abbrev}
+        python3 {params.sample_assignment_script} {input.protein_msa} -s {params.db} --seqtype {wildcards.seqtype} --gene_name {wildcards.paralog_abbrev}
+        touch {output}
+        """
+
+rule sqs_mosaic_params:
+    input:
+        cd_hit_fa=f"{as_output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/cd_hit/{{params}}_cdhit.fa"
+    output:
+        mosaic_params_file=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{params}}_align.txt"
+    params:
+        mosaic_tag=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{params}}",
+        mosaic_seqtype = sqs_get_mosaic_seqtype
+    resources:
+        mem_mb=2000
+    shell:
+        """
+        mkdir -p $(dirname {output})
+        mosaic -{params.mosaic_seqtype} -seq {input} -tag {params.mosaic_tag} -estimate
+        """
+
+rule sqs_mosaic_recomb:
+    input:
+        cd_hit_fa=f"{as_output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/cd_hit/{{params}}_cdhit.fa",
+        params_file=rules.sqs_mosaic_params.output.mosaic_params_file,
+    output:
+        align_file=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/recomb_range_{{params}}/{{rec}}_align.txt",
+        log_file=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/recomb_range_{{params}}/{{rec}}_log.txt",
+    params:
+        mosaic_tag=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/recomb_range_{{params}}/{{rec}}",
+        mosaic_seqtype = sqs_get_mosaic_seqtype
+    shell:
+        """
+        mosaic -params {input.params_file} -{params.mosaic_seqtype} -seq {input.cd_hit_fa} -tag {params.mosaic_tag} -rec {wildcards.rec} > {output.log_file}
+        """
+
+rule sqs_get_best_mosaic_rec:
+    input: 
+        rec_range=expand(
+            f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/recomb_range_{{params}}/{{rec}}_{{ext}}.txt",
+            ext=["log","align"],
+            rec=MOSAIC_REC_RANGE,
+            allow_missing=True
+        ),
+    output:
+        best_mosaic=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/best_inferences/{{params}}.txt"
+    params:
+        best_mosaic_finder=f'{config["scripts"]}/{WORKFLOW}/get_best_mosaic_inference.py',
+        recomb_range_dirname=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/recomb_range_{{params}}"
+    shell:
+        f"""
+        mkdir -p {{params.recomb_range_dirname}}
+        python3 {{params.best_mosaic_finder}} {{params.recomb_range_dirname}} {{output.best_mosaic}} -s {SQLITE_DB}
+        """
+
+rule sqs_plot_mosaic_aligner:
+    input:
+        pre_cd_hit_msa=f"{as_output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+        sharing_data=f"{output_sharing}/{{tool_name}}_{{paralog_abbrev}}_{{seqtype}}_done.txt",
+        best_mosaic=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/best_inferences/{{start}}_{{end}}__{{otherparams}}.txt",
+        done_sqlite_import=rules.sqs_import_data_tables.output,
+    output:
+        plots_done=f"{output_mosaic}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/plots_{{start}}_{{end}}__{{otherparams}}/done.txt",
+    wildcard_constraints:
+        start="[^_]+",
+        end="[^_]+",
+    params:
+        db=SQLITE_DB,
+        mosaic_plotter=f'{config["plotting_scripts"]}/plot_mosaic.py',
+    shell:
+        """
+        dirname=$(dirname {output.plots_done})
+        python3 {params.mosaic_plotter} {input.pre_cd_hit_msa} {input.best_mosaic} $dirname -s {params.db} --seqtype {wildcards.seqtype} --rasterise --kmer_sizes 10 --seq_region {wildcards.start}:{wildcards.end}
+        touch {output.plots_done}
+        """
+
+rule sqs_compute_conversion_clusters:
+    input:
+        protein_msa=f"{as_output_base}/{TOOL_NAMES[0]}/DBs/{SEQTYPES[1]}/DBs_full_with_pacb_ilmn_samples.msa",
+        dna_msa=f"{as_output_base}/{TOOL_NAMES[0]}/DBs/{SEQTYPES[0]}/DBs_full_with_pacb_ilmn_samples.msa",
+        fold_covs=config["input_tsvs"]["ir_stats_fold_covs"]
+    output:
+        f"{output_conversion}/{{region_start}}_{{region_end}}/high_share_samples_clustered.pdf"
+    params:
+        db=SQLITE_DB,
+        output_conversion=output_conversion,
+        conversion_script=f"{SHARING_SCRIPTS}/paralog_diversity_and_divergence.py"
+    shell:
+        """
+        python3 {params.conversion_script} --seq_region {wildcards.region_start}:{wildcards.region_end} --plot -f {input.fold_covs} -p {input.protein_msa} {input.dna_msa} {params.db} {params.output_conversion}
+        """
+
+
+rule sqs_msa_shared_private_partition:
+    input:
+        sharing_done=f"{output_sharing}/{TOOL_NAMES[0]}_DBs_{SEQTYPES[1]}_done.txt",
+        protein_msa=f"{as_output_base}/{TOOL_NAMES[0]}/DBs/{SEQTYPES[1]}/DBs_full_with_pacb_ilmn_samples.msa",
+    output:
+        hmms_partition=expand(
+                f"{output_partition}/{{gene_name}}_k10_{{start}}_{{end}}.hmm",
+                gene_name = ["DBLMSP","DBLMSP2"],
+                allow_missing=True
+            )
+    params:
+        db=SQLITE_DB,
+        partitioning_script=f"{SHARING_SCRIPTS}/hmm_private_shared_logos.py",
+        output_dir=output_partition,
+        seq_type=SEQTYPES[1],
+        paralog_abbrev="DBs"
+    shell:
+        """
+        python3 {params.partitioning_script} -s {params.db} --seqtype {params.seq_type}
+        --gene_name {params.paralog_abbrev} --seq_region {wildcards.start}:{wildcards.end} {input.protein_msa} {params.output_dir}
+        """
+
+rule sqs_clustering_trees:
+    """
+    This step 'brings it all together':
+      - Makes a clustering tree
+      - Adds recombination links
+      - Adds pop-level sharing stats
+      - Adds per-sample % identities
+    """
+    input:
+        sharing_done=f"{output_sharing}/{TOOL_NAMES[0]}_{{paralog_abbrev}}_{SEQTYPES[1]}_done.txt",
+        conv_clusters_done=f"{output_conversion}/{{start}}_{{end}}/high_share_samples_clustered.pdf",
+        best_mosaic=f"{output_mosaic}/{TOOL_NAMES[0]}/{{paralog_abbrev}}/{SEQTYPES[1]}/best_inferences/{{start}}_{{end}}__{{paralog_abbrev}}__thresh96.txt",
+        protein_msa=f"{as_output_base}/{TOOL_NAMES[0]}/{{paralog_abbrev}}/{SEQTYPES[1]}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+    output:
+        clustering_tree=f"{output_clustering_trees}/{{paralog_abbrev}}_{{start}}_{{end}}/clustering_tree.nwk"
+    params:
+        db=SQLITE_DB,
+        tree_script=f'{config["plotting_scripts"]}/plot_clustering_trees.py',
+        seq_type=SEQTYPES[1],
+        output_dir=output_clustering_trees
+    shell:
+        """
+        python3 {params.tree_script} -s {params.db} --seqtype {params.seq_type} --seq_region {{wildcards.start}}:{{wildcards.end}} -m {input.best_mosaic} {input.protein_msa} {params.output_dir}
+        """
