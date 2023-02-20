@@ -1,12 +1,11 @@
----
-title: Genotyping highly-variable *P.falciparum* genes
+# Genotyping highly-variable *P.falciparum* genes
+
 author: Brice Letcher
----
 
-# Summary
+## Summary
 
-This project genotypes malariaGEN samples at a set of specific *P. falciparum* genes, 
-using a genome-graph-based pipeline. See `docs/pf_genes.pdf` for a list and rationale of
+This project genotypes malariaGEN samples at a set of specific *P. falciparum* genes 
+using a newly-developed genome-graph-based pipeline. See the [documentation](docs/pf_genes.pdf) for a list and rationale of
 the genes picked for analysis.
 
 Two of these, DBLMSP and DBLMSP2, were analysed in detail, supporting the following publication:
@@ -17,27 +16,25 @@ Some of the others are analysed a little bit more in my thesis:
 
 > Genome-graph based genotyping with applications to highly variable genes in *P. falciparum*. https://doi.org/10.17863/CAM.93368
 
-# Structure
+## Structure
 
-The project is divided into Snakemake workflows, at `analysis/workflows`.
+The project is divided into Snakemake workflows located at `analysis/workflows`.
 Code used by the workflows is in `analysis/scripts`.
 
-Reproducibility is mediated by a singularity container, whose definition is at
+Reproducibility is mediated by a singularity container whose definition is at
 `reproducibility/container/singu_def.def`.
 
 An additional repository is included in this project, as a git subtree, called
 `plasmo_paralogs`. That sub-project runs all the sequence analyses of DBLMSP and
-DBLMSP2, and is structured in the same way as this one (README.md, Snakemake workflows, scripts).
+DBLMSP2 and is structured in the same way as this one (README.md, Snakemake workflows, scripts).
 
-# Workflows
+## Workflows
 
-## Constraints
+### Constraints & Conventions
 
 In each workflow I load a global configfile ("common.yaml") and a set of common python
 utilities ("common_utils.py"). "common.yaml" must be loaded before "common_utils.py",
 and "common_utils.py" must be loaded before other "utils.py".
-
-## Conventions
 
 Inside workflows, functions prefixed with `cu_` come from `analysis/workflows/common_utils.py`
 
@@ -46,20 +43,19 @@ functions prefixed with a two-letter code: e.g. for `download_data`, functions w
 start with `dd_`.
 
 
-## Running a workflow
+### Running a workflow
 
 To run a workflow on the cluster, call
 ```
 sh analysis/cluster_submit.sh
 ```
 
-## List and description of workflows
+### List and description of workflows
 
-### download_data
+#### `download_data`
 
 Requirements: None
 
-#### Purpose
 Downloads 3 main datasets (see `analysis/input_data/sample_lists` for input data TSVs):
 
   * `pf6`: downloads all p. falciparum read sets from malariaGEN [pf6 release][pf6_release]
@@ -67,30 +63,25 @@ Downloads 3 main datasets (see `analysis/input_data/sample_lists` for input data
   * `generational_samples`: downloads clone tree data from [Hamilton et al. (2017)][hamilton_2017] and crosses data (see paper for references)
 
 
-### call_variants
+#### `call_variants`
 
 Requirements: download_data
 
-#### Purpose
 Performs genotyping using a range of tools.
 
 * (Variant calling) Runs cortex and octopus on all pf6 and pacb_ilmn_pf samples
 * (Genotyping) Adjudicates between cortex and octopus using gramtools
 * (Variant calling) Runs gapfiller on top of gramtools adjudicated output
 
-### eval_varcalls
+#### `eval_varcalls`
 
 Requirements: call_variants
-
-#### Purpose
 
 Evaluates variant calls, using two orthogonal strategies (see paper).
 
-### make_prgs
+#### `make_prgs`
 
 Requirements: call_variants
-
-#### Purpose
 
 * Makes a PRG (Population Reference Graph; aka genome graph) based on end output of call_variants workflow. Configurable parameters are:
        - Which pf6 samples to use for graph construction
@@ -98,19 +89,15 @@ Requirements: call_variants
          selected for study; see [Genes](#Genes) section below)
        - What `min_match_len` to use for `make_prg`
 
-### joint_genotyping
+#### `joint_genotyping`
 
 Requirements: make_prg
 
-#### Purpose
-
 Takes as input a genome graph made by make_prg, and runs gramtools genotyping on all specified samples.
 
-### plasmo_paralogs
+#### `plasmo_paralogs`
 
 Requirements: joint_genotyping
-
-#### Purpose
 
 Produces sequences for use by `plasmo_paralogs` repository.
 
@@ -127,14 +114,14 @@ pip install -e <path/to/gramtools>
 This means the file pyrequirements.txt should not be produced by running `pip freeze > pyrequirements.txt`.
 
 
-# Input data
+## Input data
 
 We use Plasmodium data from the MalariaGEN projects: https://www.malariagen.net/ 
 The following Sanger ftp ftp://ngs.sanger.ac.uk/production/malaria/ lists:
   - pf6 metadata/vcfs (under pfcommunityproject/Pf6)
   - pvivax vcfs (under pvgv)
 
-## Reference genomes
+### Reference genomes
 
 For *P. falciparum*, I have used the 2018-11 version for variant calling and graph
 building (ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/). pf6 used the
@@ -145,7 +132,7 @@ building (ftp://ftp.sanger.ac.uk/pub/project/pathogens/gff3/2018-11/). pf6 used 
 
 On that basis it is fine to use 2018-11 version for evaluation purposes (see eval_varcalls workflow)
 
-## pf6
+### pf6
 
 Some samples are duplicates with low coverage, estimated to be mixed species, 'continent mismatches'
 (labeled from a continent but their genotypic data maps them to another); these are marked as not 'Analysis_set' in the
@@ -161,11 +148,11 @@ grep -f <(awk '{if ($2 > 0.95){print "^"$1}}' Pf_6_fws.tsv) pf6_samples.tsv | gr
 ```
 Note the code in `analysis/workflows/common_utils` also derives this (and other) sample subsets.
 
-## Generational datasets
+### Generational datasets
 
 This includes clone trees and crosses datasets, literature refs and data sources are given below.
 
-### Clone trees
+#### Clone trees
 
 * Claessens et al. (2014)[doi](): clone trees for parental lines 3D7, W2, Dd2, HB3. All
   parental lines are lab strains. 197 WGS samples in total.
@@ -182,7 +169,7 @@ genes, I find large distances between the inferred sequences for the parent and 
 child samples, but a distance of zero to another parent in a different clone tree. I
 corrected these, and stored the new sample tsv in analysis/input_data/sample_lists/generational_samples/clone_trees_corrected.tsv
 
-### Crosses
+#### Crosses
 
 The crosses input tsv is produced from the input txt files of each of two papers as follows:
 * Miles et al. (2016) table: ftp://ngs.sanger.ac.uk/production/malaria/pf-crosses/1.0/samples.txt, which I call `miles_etal_crosses.txt`
@@ -197,9 +184,9 @@ awk -F'\t' '{print $2"\t"$1"\t"$3"\t"$4}' garimella_etal_crosses.txt | grep "803
 Column `Clone` allows identifying the parent samples for each cross. All accessions are 
 run IDs, but all samples were sequenced in single run (as per Miles et al. (2016) supplementary)
 
-# Genes
+## Genes
 
-## P. falciparum
+### P. falciparum
 
 See the [documentation](docs/pf_genes.pdf) for a list and rationale for the genes we chose to analyse.
 
