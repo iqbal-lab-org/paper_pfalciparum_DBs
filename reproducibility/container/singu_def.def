@@ -129,7 +129,6 @@ From: ubuntu:focal
     ln -sf $(pwd)/venv/bin/octopus /usr/bin/octopus
     rm -r venv/{pkgs,include}
 
-
     ## seqkit (fasta manipulation)
     cd ${HOME}
     wget https://github.com/shenwei356/seqkit/releases/download/v2.0.0/seqkit_linux_amd64.tar.gz
@@ -176,7 +175,8 @@ From: ubuntu:focal
     chmod u+x /usr/bin/inkscape 
 
 
-    ##### Currently tested ends here #######
+    ##### Used container definition ends here #######
+    ##### (below instructions kept here for the record only
 
 	#/*************/
 	#/* varifier  */

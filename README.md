@@ -24,6 +24,10 @@ Code used by the workflows is in `analysis/scripts`.
 Reproducibility is mediated by a singularity container whose definition is at
 `reproducibility/container/singu_def.def`.
 
+A built version of this container is expected by the workflows in
+`reproducibility/container/built/singu.sif`. A built version is available on zenodo and 
+can be copied from there (see paper for link).
+
 An additional repository is included in this project, as a git subtree, called
 `plasmo_paralogs`. That sub-project runs all the sequence analyses of DBLMSP and
 DBLMSP2 and is structured in the same way as this one (README.md, Snakemake workflows, scripts).
@@ -56,7 +60,8 @@ sh analysis/cluster_submit.sh
 
 Requirements: None
 
-Downloads 3 main datasets (see `analysis/input_data/sample_lists` for input data TSVs):
+Downloads 3 main datasets, using input TSVs located at `analysis/input_data/sample_lists`
+(and also released on zenodo, see paper for link):
 
   * `pf6`: downloads all p. falciparum read sets from malariaGEN [pf6 release][pf6_release]
   * `pacb_ilmn_pf`: downloads paired illumina reads and pacbio assemblies for 15 samples from [Otto et al. (2018)][otto_2018]
