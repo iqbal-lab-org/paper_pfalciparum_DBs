@@ -13,52 +13,61 @@ import subprocess
 import sys
 
 
-def ena_download(outdir, ena_ID):
+def ena_download_enabrowsertools(outdir, ena_ID):
     if ena_ID.startswith("ERS"):
         command = "enaGroupGet"
     elif ena_ID.startswith("ERR"):
         command = "enaDataGet"
-    else:
-        raise ValueError(f"{ena_ID} must be of form ERR.*|ERS.*")
     command += f" --format fastq {ena_ID}"
     print("Start:", command)
     subprocess.check_output(command, shell=True, cwd=outdir)
     print("Finish:", command)
 
 
-def make_two_read_files(outdir, ena_IDs) -> None:
-    if ena_IDs.startswith("ERS"):
-        run_ids = []
-        for ena_ID in ena_IDs.split(","):
-            run_ids += glob(f"{outdir}/{ena_ID}/*")
-    else:
-        run_ids = glob(f"{outdir}/*")
+def ena_download_fastq_dl(outdir, ena_ID):
+    command = f"fastq-dl -a {ena_ID} --provider ENA --max-attempts 2"
+    print("Start:", command)
+    subprocess.check_output(command, shell=True, cwd=outdir)
+    print("Finish:", command)
+
+
+def make_two_read_files(outdir) -> None:
+    """
+    This function assumes we downloaded with `fastq-dl`, not `enaBrowserTools`.
+    For how it was done using the latter, see commit c5e6467fd762d17311c55db425d0f3e4bf881f99.
+    (enaBrowserTools makes one directory per sample/run accession, whereas fastq-dl puts all reads in `outdir`)
+    """
+    globbed_runs = Path(outdir).glob("ERR*")
+    to_remove = list()
+    run_ids = set()
+    for path in globbed_runs:
+        run_id = path.name.split("_")[0]
+        run_ids.add(run_id)
+        to_remove.append(path)
 
     for run_id in run_ids:
-        assert_two_paired_fastq_files(run_id)
+        assert_two_paired_fastq_files(outdir,run_id)
 
     for i in [1, 2]:
         reads = []
         for run_id in run_ids:
-            reads += glob(f"{run_id}/*_{i}.fastq.gz")
+            reads.append(str(outdir / f"{run_id}_{i}.fastq.gz"))
         reads = " ".join(reads)
         if len(run_ids) > 1:
-            command = f"cat {reads} > reads_{i}.fastq.gz"
+            command = f"cat {reads} > {outdir}/reads_{i}.fastq.gz"
         else:
-            command = f"mv {reads} reads_{i}.fastq.gz"
+            command = f"mv {reads} {outdir}/reads_{i}.fastq.gz"
 
         print("Start:", command)
-        subprocess.check_output(command, shell=True, cwd=outdir)
+        subprocess.check_output(command, shell=True)
         print("Finish:", command)
+    for path in to_remove:
+        path.unlink()
 
-    for ena_ID in ena_IDs.split(","):
-        shutil.rmtree(f"{outdir}/{ena_ID}")
-
-
-def assert_two_paired_fastq_files(dirname: Path) -> None:
-    files = glob(f"{dirname}/*")
+def assert_two_paired_fastq_files(outdir: Path, run_id: str) -> None:
+    files = list(map(str,outdir.glob(f"{run_id}*")))
     if not len(files) == 2:
-        raise Exception(f"Expected two files in {dirname}")
+        raise Exception(f"Expected two files in {outdir}")
     found_1 = False
     found_2 = False
     for fname in files:
@@ -69,7 +78,7 @@ def assert_two_paired_fastq_files(dirname: Path) -> None:
         elif "_2" in fname:
             found_2 = fname
     if not found_1 or not found_2:
-        raise Exception(f"Expected _1 and _2 in the two files in {dirname}")
+        raise Exception(f"Expected _1 and _2 in the two files in {outdir}")
 
 
 def main():
@@ -88,8 +97,10 @@ def main():
         return
 
     for ena_ID in ena_IDs.split(","):
-        ena_download(outdir, ena_ID)
-    make_two_read_files(outdir, ena_IDs)
+        if not ena_ID.startswith("ERS") and not ena_ID.startswith("ERR"):
+            ValueError(f"{ena_ID} must be of form ERR.*|ERS.*")
+        ena_download_fastq_dl(outdir, ena_ID)
+    make_two_read_files(outdir)
 
 
 if __name__ == "__main__":

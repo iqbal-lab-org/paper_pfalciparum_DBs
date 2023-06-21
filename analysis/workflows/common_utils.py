@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 from csv import DictReader
 from subprocess import run as sp_run, PIPE
 from glob import glob
@@ -93,12 +93,13 @@ def cu_get_ref_genome(wildcards):
 
 _PF_GENOME = "23.33Mb"
 _PV_GENOME = "29.05Mb"
+_LAV_GENOME = "100Mb" # Take a large estimate to account for multiple infections and host contamination during read subsampling
 
 ##################
 # Load sample tsvs#
 ##################
 class ENARecord:
-    DATASETS = {"pf6": _PF_GENOME, "pvgv": _PV_GENOME, "pacb_ilmn_pf": _PF_GENOME, "clone_trees": _PF_GENOME, "crosses": _PF_GENOME}
+    DATASETS = {"pf6": _PF_GENOME, "pvgv": _PV_GENOME, "pacb_ilmn_pf": _PF_GENOME, "clone_trees": _PF_GENOME, "crosses": _PF_GENOME, "laverania_illumina": _LAV_GENOME}
     def __init__(self, dataset_name: str, sample_name: str, ena_IDs: str):
         if dataset_name not in self.DATASETS:
             raise ValueError(f"{dataset_name} not in {self.DATASETS}")
@@ -206,6 +207,20 @@ def cu_load_crosses(tsv_fname: str) -> List[ENARecord]:
             )
     return result
 
+
+def cu_load_laverania_illumina(tsv_fname: str) -> List[ENARecord]:
+    result = list()
+    with open(tsv_fname) as tsvfile:
+        reader = DictReader(tsvfile, delimiter="\t")
+        for row in reader:
+            if row["sample_name"].startswith("#") or row["sample_name"] in {
+                    "PPRFG04" # This sample has one or more corrupted gzip fastqs
+            }:
+                continue
+            result.append(
+                ENARecord("laverania_illumina", row["sample_name"], row["ENA_sample_accession"])
+            )
+    return result
 
 def cu_record_to_sample_names(records: List[ENARecord]):
     return [rec.sample_name for rec in records]

@@ -37,7 +37,7 @@ tools = ["malariaGEN",gram_version]
 sample_set_names = ["pf6_analysis_set_fws95", "pacb_ilmn_pf@pf6_analysis_set_fws95"]
 
 gene_list_name = "pf6_26_genes"
-otto_assembs = "otto_assemblies"
+otto_assembs = "pf_assemblies"
 # genes = pp_filter_to_paralogs(cu_load_bed(gene_list_name))
 genes = cu_load_bed(gene_list_name)
 

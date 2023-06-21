@@ -24,6 +24,7 @@ pvgv_validation_tsv: "analysis/input_data/sample_lists/pvgv/pvgv_validation_samp
 pacb_ilmn_pf_tsv: "analysis/input_data/sample_lists/pacb_ilmn_pf/pacb_ilmn_pf.tsv"
 clone_tree_tsv: "analysis/input_data/sample_lists/generational_samples/clone_trees.tsv"
 crosses_tsv: "analysis/input_data/sample_lists/generational_samples/crosses.tsv"
+laverania_illumina_tsv: "analysis/input_data/sample_lists/laverania_illumina/laverania_illumina.tsv"
 
 ## Bed files
 pf3d7_2018_11_core_regions: "analysis/input_data/pf3d7_2018_11_regions_in_core.bed"

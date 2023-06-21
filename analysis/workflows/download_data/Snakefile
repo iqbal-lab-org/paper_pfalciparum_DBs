@@ -36,6 +36,7 @@ ena_records = (
     + cu_load_pacb_ilmn_pf(config["pacb_ilmn_pf_tsv"])
     + cu_load_clone_trees(config["clone_tree_tsv"])
     + cu_load_crosses(config["crosses_tsv"])
+    cu_load_laverania_illumina(config["laverania_illumina_tsv"])
 )
 
 
