@@ -1,17 +1,22 @@
 """
-Workflow to genotype the clone tree samples
-Steps:
+Workflow to genotype other samples than those in malariaGEN's pf6 release:
+    * Pf clone trees
+    * Pf experimental crosses
+    * Non-pf laverania samples
+Steps (for each genotyped sample):
     * Run gramtools genotyping on the pf6 graph
     * Run my variant calling pipeline on top of that: octopus/cortex, adjudicate, gapfiller
 Re-uses the rules in other workflows, imported as modules, to do so
 """
-WORKFLOW = "generational_samples"
+import itertools as it
+WORKFLOW = "non_pf6_samples"
 
 
 configfile: "analysis/configs/common.yaml"
 
 
 include: "../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
 
 
 GMTOOLS_COMMIT = cu_get_gmtools_commit(config["container_gramtools"])
@@ -46,15 +51,22 @@ ALL_TOOLS = [gram_joint_geno_path,"cortex","octopus",f"gram_adju_{GMTOOLS_COMMIT
 include: "utils.py"
 
 
-clone_tree_samples = [
-    elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])
-    ]
+DATASETS = {
+        # "clone_trees": [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])],
+        # "crosses": [elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])],
+        "laverania_illumina": [elem.sample_name for elem in cu_load_laverania_illumina(config["laverania_illumina_tsv"])]
+        }
 
-crosses_samples = [
-    elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])
-    ]
 
-DATASET_NAMES = ["clone_trees","crosses"]
+def nps_get_expected_beds(dataset_name, samples):
+    return expand(
+        f"{output_base}/{{tool}}/{dataset_name}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+        tool=ALL_TOOLS,
+        sample_name=samples
+        )
+
+
+DATASET_NAMES = list(DATASETS.keys())
 
 
 #### Modules ###
@@ -87,15 +99,7 @@ rule all:
                 f"{output_ir_stats}/{{dataset_name}}_ir_stats.tsv",
                 dataset_name=DATASET_NAMES
                 ),
-        translated_beds=expand(
-                f"{output_base}/{{tool}}/clone_trees/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
-                tool=ALL_TOOLS,
-                sample_name=clone_tree_samples
-                ) + expand(
-                f"{output_base}/{{tool}}/crosses/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
-                tool=ALL_TOOLS,
-                sample_name=crosses_samples
-                ),
+        translated_beds=it.starmap(nps_get_expected_beds, DATASETS.items()),
         # below will fail to run if above has not been already produced.
         #gene_seqs=expand(
         #        f"{output_gene_seqs}/{{tool}}/{{dataset_name}}/{{gene}}.fa",
@@ -119,7 +123,7 @@ use rule jg_gramtools_genotype from joint_geno with:
 # This rule can produce induced references for multiple different tools
 use rule cv_map_to_induced_ref from call_variants with:
     input:
-        ref_genome=gs_get_ref_genome,
+        ref_genome=nps_get_ref_genome,
         vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         reads=cu_get_reads,
     output:
@@ -129,12 +133,12 @@ use rule cv_map_to_induced_ref from call_variants with:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
 
 
-rule gs_translate_bed:
+rule nps_translate_bed:
     input:
-        translation_ref=gs_get_ref_genome,
+        translation_ref=nps_get_ref_genome,
         translation_vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
-        translation_bed=gs_get_translation_bed,
-        translation_bed_for_eval=gs_get_translation_bed_for_eval,
+        translation_bed=nps_get_translation_bed,
+        translation_bed_for_eval=nps_get_translation_bed_for_eval,
     output:
         translated_bed=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
         translated_bed_for_eval=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_for_eval_induced.bed",
@@ -189,13 +193,13 @@ use rule cv_run_gapfiller from call_variants with:
         mapped_contig_bam=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/mapped_contigs.bam",
 
 
-rule gs_induced_ref_get_stats:
+rule nps_induced_ref_get_stats:
     """
     Similar rule as in eval_varcalls workflow, but simpler
     """
     input:
-        bed_to_translate=gs_get_translation_bed_for_eval,
-        ref_to_translate=gs_get_ref_genome,
+        bed_to_translate=nps_get_translation_bed_for_eval,
+        ref_to_translate=nps_get_ref_genome,
         bed_for_insert_size=config["pf3d7_2018_11_core_regions"],
         induced_ref=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
         vcf=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
@@ -210,9 +214,9 @@ rule gs_induced_ref_get_stats:
         python3 {params.script_get_stats} {input.bed_to_translate} {input.ref_to_translate} {input.induced_ref} {input.vcf} {input.induced_bam} --out_fname {output} --sample_name {wildcards.sample_name} --tool_name {wildcards.tool} -bi {input.bed_for_insert_size}
         """
 
-rule gs_get_all_ir_stats:
+rule nps_get_all_ir_stats:
     input:
-        gs_get_expected_ir_stats,
+        nps_get_expected_ir_stats,
     output:
         f"{output_ir_stats}/{{dataset_name}}_ir_stats.tsv",
     params:
@@ -224,7 +228,7 @@ rule gs_get_all_ir_stats:
         """
 
 
-rule gs_get_induced_gene_seqs:
+rule nps_get_induced_gene_seqs:
     """
     This rule has no specified inputs because snakemake too slow to compute them. Its required inputs are all created in process of making ir_stats.tsv; thus that has to have been made first.
     """
@@ -237,7 +241,7 @@ rule gs_get_induced_gene_seqs:
     params:
         input_tool_dir=f"{output_base}/{{tool}}/{{dataset_name}}",
         bed_name=f"{GENE_LIST_NAME}_induced.bed",
-        samples=gs_get_samples,
+        samples=lambda wc: DATASETS[wc.dataset_name],
         genes=GENES_TO_INDUCE,
         output_tool_dir=f"{output_gene_seqs}/{{tool}}/{{dataset_name}}",
     shell:

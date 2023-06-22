@@ -64,7 +64,7 @@ def cu_get_reads(wildcards):
         f'{config["dl_output_dir"]}/{{dataset_name}}/{wildcards.sample_name}/reads_{i}.final.fastq.gz'
         for i in [1, 2]
     ]
-    for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf","clone_trees","crosses"]:
+    for recognised_name in ["pf6", "pvgv", "pacb_ilmn_pf","clone_trees","crosses","laverania_illumina"]:
         if wildcards.dataset_name.startswith(recognised_name):
             return [
                 read_file.format(dataset_name=recognised_name)
@@ -81,6 +81,7 @@ def cu_get_ref_genome_no_wildcards(dataset_name):
         "pacb_ilmn_pf": "Pfalciparum",
         "clone_trees": "Pfalciparum",
         "crosses": "Pfalciparum",
+        "laverania_illumina": "Pfalciparum",
     }
     for key, val in ds_to_ref.items():
         if dataset_name.startswith(key):

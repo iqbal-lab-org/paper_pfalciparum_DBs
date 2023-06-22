@@ -66,6 +66,7 @@ Downloads 3 main datasets, using input TSVs located at `analysis/input_data/samp
   * `pf6`: downloads all p. falciparum read sets from malariaGEN [pf6 release][pf6_release]
   * `pacb_ilmn_pf`: downloads paired illumina reads and pacbio assemblies for 15 samples from [Otto et al. (2018)][otto_2018]
   * `generational_samples`: downloads clone tree data from [Hamilton et al. (2017)][hamilton_2017] and crosses data (see paper for references)
+  * `laverania_illumina`: downloads Illumina reads from non-pf laverania species from [Otto et al. (2018)][otto_2018b] (note this is a different paper reference than for `pacb_ilmn_pf` ;-))
 
 
 #### `call_variants`
@@ -105,6 +106,12 @@ Takes as input a genome graph made by make_prg, and runs gramtools genotyping on
 Requirements: joint_genotyping
 
 Produces sequences for use by `plasmo_paralogs` repository.
+
+#### `non_pf6_samples`
+
+Genotypes samples not part of malariaGEN's [pf6][pf6_release]:
+    - Generational samples: pf clones and crosses
+    - Laverania samples: non-pf laverania samples
 
 ## Development
 
@@ -198,3 +205,4 @@ See the [documentation](docs/pf_genes.pdf) for a list and rationale for the gene
 [pf6_release]: https://doi.org/10.12688/wellcomeopenres.16168.1
 [hamilton_2017]: https://doi.org/10.1093/nar/gkw1259
 [otto_2018]: https://doi.org/10.12688/wellcomeopenres.14571.1
+[otto_2018b]: https://doi.org/10.1038/s41564-018-0162-2

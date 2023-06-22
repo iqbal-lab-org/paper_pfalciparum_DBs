@@ -1,7 +1,7 @@
 import re
 
 _var_caller_regexp = re.compile("^gram_adju|^octopus|^cortex")
-def gs_get_ref_genome(wildcards):
+def nps_get_ref_genome(wildcards):
     if wildcards.tool.startswith("gram_jointgeno"):
         return cu_get_ref_genome(wildcards)
     elif wildcards.tool.startswith("gapfiller"):
@@ -12,7 +12,7 @@ def gs_get_ref_genome(wildcards):
         raise ValueError(f"Unsupported tool: {wildcards.tool}")
 
 
-def gs_get_translation_bed(wildcards):
+def nps_get_translation_bed(wildcards):
     if wildcards.tool.startswith("gram_jointgeno"):
         return GENE_BED
     elif wildcards.tool.startswith("gapfiller"):
@@ -22,7 +22,7 @@ def gs_get_translation_bed(wildcards):
     else:
         raise ValueError(f"Unsupported tool: {wildcards.tool}")
 
-def gs_get_translation_bed_for_eval(wildcards):
+def nps_get_translation_bed_for_eval(wildcards):
     if wildcards.tool.startswith("gram_jointgeno"):
         return GENE_BED_FOR_EVAL
     elif wildcards.tool.startswith("gapfiller"):
@@ -32,26 +32,9 @@ def gs_get_translation_bed_for_eval(wildcards):
     else:
         raise ValueError(f"Unsupported tool: {wildcards.tool}")
 
-def gs_get_expected_ir_stats(wildcards):
-    if wildcards.dataset_name == "clone_trees":
-        return expand(
-            f"{output_ir_stats_per_sample}/{wildcards.dataset_name}/{{tool}}_{{sample_name}}.tsv",
-            tool = ALL_TOOLS,
-            sample_name = clone_tree_samples
-            )
-    elif wildcards.dataset_name == "crosses":
-        return expand(
-            f"{output_ir_stats_per_sample}/{wildcards.dataset_name}/{{tool}}_{{sample_name}}.tsv",
-            tool = ALL_TOOLS,
-            sample_name = crosses_samples
-            )
-    else:
-        raise ValueError(f"Unsupported dataset")
-
-def gs_get_samples(wildcards):
-    if wildcards.dataset_name == "clone_trees":
-        return clone_tree_samples
-    elif wildcards.dataset_name == "crosses":
-        return crosses_samples
-    else:
-        raise ValueError("Unsupported dataset")
+def nps_get_expected_ir_stats(wildcards):
+    return expand(
+        f"{output_ir_stats_per_sample}/{wildcards.dataset_name}/{{tool}}_{{sample_name}}.tsv",
+        tool = ALL_TOOLS,
+        sample_name = DATASETS[wildcards.dataset_name]
+        )
