@@ -5,7 +5,7 @@ import click
 import pandas as pd
 from pybedtools import BedTool
 
-from common_utils.pileup_utils import get_mpileups, pileup_matches, pileup_mismatches
+from plasmo_surfants.common_utils.pileup_utils import get_mpileups, pileup_matches, pileup_mismatches
 
 
 def get_induced_ref_file_names(induced_ref_dir, sname):

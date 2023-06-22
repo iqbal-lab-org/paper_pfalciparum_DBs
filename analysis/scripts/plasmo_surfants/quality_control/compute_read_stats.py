@@ -10,8 +10,8 @@ from pysam import (
 )
 from numpy import absolute
 
-from common_utils.qc import QCMeasure
-from common_utils.genome_region import RegionMode, GenomeRegion, genome_regions_from_bed
+from plasmo_surfants.common_utils.qc import QCMeasure
+from plasmo_surfants.common_utils.genome_region import RegionMode, GenomeRegion, genome_regions_from_bed
 
 
 def print_header(ctx, param, value):

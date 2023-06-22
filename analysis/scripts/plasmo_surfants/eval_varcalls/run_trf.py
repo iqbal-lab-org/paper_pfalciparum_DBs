@@ -10,7 +10,7 @@ import click
 from pysam import AlignmentFile
 from pyfaidx import Fasta
 
-from common_utils.metrics import MetricsRecorder
+from plasmo_surfants.common_utils.metrics import MetricsRecorder
 
 
 class RepeatStats(MetricsRecorder):

@@ -1,4 +1,4 @@
-from quality_control.compute_read_stats import mean_and_std
+from plasmo_surfants.quality_control.compute_read_stats import mean_and_std
 import numpy as np
 
 class TestMeanStd:

@@ -10,8 +10,8 @@ from pysam import (
 )
 from numpy import absolute, mean, std
 
-from common_utils.shift_to_induced_genome_coords import translate_bed
-from common_utils.pileup_utils import (
+from plasmo_surfants.common_utils.shift_to_induced_genome_coords import translate_bed
+from plasmo_surfants.common_utils.pileup_utils import (
         get_mpileups, 
         pileup_matches,
         pileup_mismatches
