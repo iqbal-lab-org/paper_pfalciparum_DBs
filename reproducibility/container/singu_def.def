@@ -40,7 +40,6 @@ From: ubuntu:focal
 	pip3 install pip==20.0.2 
 	pip3 install -r /setup_files/pyrequirements.txt
 
-    # Change this depending on whether building container for plaso_surfants or plasmo_paralogs
     pip3 install -e /plasmo_surfants_scripts
     pip3 install -e /plasmo_paralogs_scripts
 

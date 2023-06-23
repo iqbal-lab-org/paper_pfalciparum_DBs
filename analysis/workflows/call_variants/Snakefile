@@ -83,7 +83,7 @@ rule cv_bwa_map_reads:
         reads=cu_get_reads,
     output:
         f"{output_mapped_reads_original}/{{dataset_name}}/{{sample_name}}/mapped.bam"
-    threads: 4
+    threads: 10
     shadow:
         "shallow"
     resources:
@@ -124,7 +124,7 @@ rule cv_run_octopus:
         vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
     params:
         vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
-    threads: 4
+    threads: 20
     shadow:
         "shallow"
     resources:
@@ -145,7 +145,7 @@ rule cv_run_cortex:
     output:
         f"{output_cortex}/{{dataset_name}}/{{sample_name}}/cortex.vcf.gz",
     resources:
-        mem_mb=12000,
+        mem_mb=18000,
     shadow:
         "shallow"
     params:
@@ -203,7 +203,7 @@ rule cv_map_to_induced_ref:
         induced_ref = f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
     shadow:
         "shallow"
-    threads: 4
+    threads: 16
     resources:
         mem_mb=4000,
     shell:

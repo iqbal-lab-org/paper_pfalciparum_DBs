@@ -1,6 +1,6 @@
 # Base directories
-scripts: "analysis/scripts"
-common_scripts: "analysis/scripts/common_utils"
+scripts: "analysis/scripts/plasmo_surfants"
+common_scripts: "analysis/scripts/plasmo_surfants/common_utils"
 output_dir: "analysis/outputs"
 input_data: "analysis/input_data"
 
@@ -13,8 +13,8 @@ varcall_dir: "analysis/outputs/call_variants"
 jointgeno_dir: "analysis/outputs/joint_genotyping"
 
 # Containers
-container_gramtools: "container/built/singu.sif"
-container_minos: "container/built/minospb.sif"
+container_gramtools: "reproducibility/container/built/singu.sif"
+container_minos: "reproducibility/container/built/minospb.sif"
 
 # Sample tsvs
 pf6_tsv: "analysis/input_data/sample_lists/pf6/pf6_samples.tsv"
