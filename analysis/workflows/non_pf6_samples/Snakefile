@@ -54,7 +54,7 @@ include: "utils.py"
 DATASETS = {
         # "clone_trees": [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])],
         # "crosses": [elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])],
-        "laverania_illumina": [elem.sample_name for elem in cu_load_laverania_illumina(config["laverania_illumina_tsv"])]
+        "laverania_illumina": [elem.sample_name for elem in cu_load_laverania_illumina(config["laverania_illumina_tsv"]) if elem.sample_name not in {"PPRFG03"}]
         }
 
 
@@ -131,6 +131,8 @@ use rule cv_map_to_induced_ref from call_variants with:
         induced_bam=f"{output_base}/{{tool}}/{{dataset_name}}/{{sample_name}}/induced_ref_mapped.bam",
     params:
         script_induce_seqs=f'{config["common_scripts"]}/induce_gene_seqs.sh',
+    resources:
+        mem_mb=10000,
 
 
 rule nps_translate_bed:
@@ -158,6 +160,9 @@ use rule cv_run_octopus from call_variants with:
     output:
         vcf_pre_filtered=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/pre_overlap_removed.vcf.gz",
         vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+    threads: 12
+    resources:
+        mem_mb=26000,
 
 
 use rule cv_run_cortex from call_variants with:
@@ -166,11 +171,17 @@ use rule cv_run_cortex from call_variants with:
         reads=cu_get_reads,
     output:
         vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
+    resources:
+        mem_mb=20000,
 
 
-use rule cv_gramtools_adjudicate from call_variants with:
+rule nps_gramtools_adjudicate:
+    """
+    Different from adjudication in 'call_variants' as runs it only on the genes of interest (otherwise struggles RAM-wise for laverania samples)
+    """
     input:
         ref_genome=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
+        regions=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
         octopus_vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         cortex_vcf=f"{output_cortex}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         reads=cu_get_reads,
@@ -178,7 +189,25 @@ use rule cv_gramtools_adjudicate from call_variants with:
         vcf=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         build_rep=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/build_report.json",
         geno_rep=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/genotype_report.json",
-
+    shadow:
+        "shallow"
+    threads: 10
+    resources:
+        mem_mb=8000,
+    shell:
+        """
+        filter="PASS,."
+        bcftools view -f "$filter" {input.octopus_vcf} -Oz > octopus.vcf.gz
+        bcftools index octopus.vcf.gz
+        bcftools view -R {input.regions} octopus.vcf.gz -Ov | awk '$4 $5 !~ /N/ {{print $0}}' > vcf1.vcf
+        bgzip vcf1.vcf
+        bcftools view -R {input.regions} -f "$filter" {input.cortex_vcf} -Oz -o vcf2.vcf.gz
+        gramtools build --ref {input.ref_genome} --vcf vcf1.vcf.gz --vcf vcf2.vcf.gz --kmer_size 12 -o gram
+        gramtools genotype --max_threads {threads} -i gram -o genotype --reads {input.reads} --sample_id {wildcards.sample_name}
+        mv genotype/genotype/*.vcf.gz {output.vcf}
+        mv gram/build_report.json {output.build_rep}
+        mv genotype/genotype_report.json {output.geno_rep}
+        """
 
 use rule cv_run_gapfiller from call_variants with:
     input:
@@ -187,6 +216,8 @@ use rule cv_run_gapfiller from call_variants with:
         pre_induced_ref=f"{output_gram_joint_geno}/{{dataset_name}}/{{sample_name}}/induced_ref.fa.gz",
         pre_induced_vcf=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         bed_regions_to_call_in=f"{output_gram_adju}/{{dataset_name}}/{{sample_name}}/{GENE_LIST_NAME}_induced.bed",
+    resources:
+        mem_mb=10000,
     output:
         gapfiller_vcf=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/final.vcf.gz",
         gapfiller_vcf_rebased=f"{output_gapfiller}/{{dataset_name}}/{{sample_name}}/final_rebased.vcf.gz",

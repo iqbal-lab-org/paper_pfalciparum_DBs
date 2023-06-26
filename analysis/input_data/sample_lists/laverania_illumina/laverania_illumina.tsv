@@ -1,5 +1,6 @@
 sample_name	ENA_sample_accession	Species
 # Accessions taken from Otto et al. (2018): 10.1038/s41564-018-0162-2, Supp. Table 9
+PPRFG01	ERS434570	P. praefalciparum
 PPRFG02	ERS248084	P. praefalciparum
 PPRFG03	ERS446987	P. praefalciparum
 PPRFG04	ERS352728	P. adleri and P. praefalciparum

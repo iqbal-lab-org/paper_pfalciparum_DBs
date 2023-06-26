@@ -124,7 +124,7 @@ rule cv_run_octopus:
         vcf=f"{output_octopus}/{{dataset_name}}/{{sample_name}}/octopus.vcf.gz",
     params:
         vcf_overlap_remover=f'{config["common_scripts"]}/remove_vcf_overlaps.py',
-    threads: 20
+    threads: 16
     shadow:
         "shallow"
     resources:

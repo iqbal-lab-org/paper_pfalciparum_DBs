@@ -214,9 +214,7 @@ def cu_load_laverania_illumina(tsv_fname: str) -> List[ENARecord]:
     with open(tsv_fname) as tsvfile:
         reader = DictReader(tsvfile, delimiter="\t")
         for row in reader:
-            if row["sample_name"].startswith("#") or row["sample_name"] in {
-                    "PPRFG04" # This sample has one or more corrupted gzip fastqs
-            }:
+            if row["sample_name"].startswith("#"):
                 continue
             result.append(
                 ENARecord("laverania_illumina", row["sample_name"], row["ENA_sample_accession"])

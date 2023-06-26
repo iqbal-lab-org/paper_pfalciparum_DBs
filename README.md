@@ -109,9 +109,23 @@ Produces sequences for use by `plasmo_paralogs` repository.
 
 #### `non_pf6_samples`
 
-Genotypes samples not part of malariaGEN's [pf6][pf6_release]:
+Genotypes Illumina-sequenced samples not part of malariaGEN's [pf6][pf6_release]:
     - Generational samples: pf clones and crosses
     - Laverania samples: non-pf laverania samples
+
+For the laverania samples, four datasets are available:
+
+    - PPRFG01: the one with Pacb data as well, from which assembly was built
+    - PPRFG02: DBLMSP, DBLMSP2, AMA1 were all fully resolved at the end of
+      `non_pf6_samples` worfklow.
+    - PPRFG03: almost no read coverage in DBLMSP, DBLMSP2, and AMA1 after joint genotyping on the pf6-graph
+      This may be due to the high rate of host contamination (~86%) ([Otto et al. (2018)[otto_2018b] supp. table 1).
+    - PPRFG04: has more diversity than the three above - this could be due to it being highly mixed with P. adleri. DBLMSP was almost fully resolved at the end of the `non_pf6_samples` workflow, not DBLMSP2.
+
+Sanity check: I ran `bcftools view -R analysis/input_data/otto_2018_core_genome_def.bed -f "PASS" -v snps | wc -l` on each vcf made by octopus for:
+    - The 15 `pacb_ilmn_pf` Pf samples
+    - The four laverania samples above
+And get ~18k SNPs for the Pf samples vs > 130k SNPs for the laverania samples; including for PPRFG02, which I initially found suspiciously not-diverged from 3D7, when looking at read alignments.
 
 ## Development
 
