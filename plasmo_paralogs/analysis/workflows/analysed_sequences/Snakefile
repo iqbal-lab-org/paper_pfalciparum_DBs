@@ -24,13 +24,17 @@ DBL_protein_start, DBL_protein_end = cu_load_DBL_coords(SEQTYPES[1])
 rule all:
     input:
         msas=expand(
-            f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+            f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pf_assemblies.msa",
             paralog_abbrev=config["paralog_abbrevs"],
             seqtype=["dna", "protein"],
             tool_name=TOOL_NAMES
         ),
+        laverania_msas=[
+            f"{output_base}/gramtools/DBs/protein/DBs_full_with_pf_and_laverania_assemblies.msa",
+            f"{output_base}/gramtools/DBs/protein/trimmed/{DBL_protein_start}_{DBL_protein_end}__DBs__with_laverania.fa",
+        ],
         cdhit_clusters=expand(
-                f"{output_base}/{{tool_name}}/DBs/{{seqtype}}/cd_hit/{DBL_protein_start}_{DBL_protein_end}__{{paralog_abbrev}}__thresh{{thresh}}_cdhit.{{ext}}",
+                f"{output_base}/{{tool_name}}/DBs/{{seqtype}}/cd_hit/{DBL_protein_start}_{DBL_protein_end}__DBs__thresh{{thresh}}_cdhit.{{ext}}",
                 tool_name=TOOL_NAMES[0],
                 ext=["fa","fa.clstr","msa"],
                 thresh=[94, 96, 98],
@@ -126,37 +130,38 @@ rule as_de_dedup_msa:
         """
 
 
-rule as_add_pacb_ilmn_samples_to_msa:
+rule as_add_assemblies_to_msa:
     input:
         msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full.msa",
-        pacb_ilmn_seqs=f'{config["input_data"]}/{WORKFLOW}/pacb_ilmn_pf/{{paralog_abbrev}}_otto_assemblies.fa'
+        pf_asm_seqs=f'{config["input_data"]}/{WORKFLOW}/assembly_sequences/dna/{{paralog_abbrev}}_pf_assemblies.fa',
     output:
-        msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pacb_ilmn_samples.msa",
+        msa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/{{paralog_abbrev}}_full_with_pf_assemblies.msa",
     params:
         translation_script=f'{config["scripts"]}/{WORKFLOW}/translate.py',
         eba175_exon1_pattern = EBA175_EXON1_PATTERN
     resources:
         mem_mb=5000,
+    threads: 10
     shadow:
         "shallow"
     shell:
         """
         if [[ {wildcards.seqtype} == protein ]]; then
             if [[ {wildcards.paralog_abbrev} == "EBA175" ]];then
-                python3 {params.translation_script} {input.pacb_ilmn_seqs} input_data.fa --aa_regexp '{params.eba175_exon1_pattern}'
+                python3 {params.translation_script} {input.pf_asm_seqs} input_seqs.fa --aa_regexp '{params.eba175_exon1_pattern}'
             else
-            python3 {params.translation_script} {input.pacb_ilmn_seqs} input_data.fa
+                python3 {params.translation_script} {input.pf_asm_seqs} input_seqs.fa
             fi
         else
-            cp {input.pacb_ilmn_seqs} input_data.fa
+            cp {input.pf_asm_seqs} input_seqs.fa
         fi
-        mafft --add input_data.fa {input.msa} > {output}
+        mafft --thread {threads} --add input_seqs.fa {input.msa} > {output}
         """
 
 
 rule as_trim_msa:
     input:
-        msa=rules.as_add_pacb_ilmn_samples_to_msa.output.msa
+        msa=rules.as_add_assemblies_to_msa.output.msa
     output:
         fa=f"{output_base}/{{tool_name}}/{{paralog_abbrev}}/{{seqtype}}/trimmed/{{start}}_{{end}}__{{paralog_abbrev}}.fa"
     shell:
@@ -164,6 +169,24 @@ rule as_trim_msa:
         mkdir -p $(dirname {output.fa})
         seqkit subseq {input.msa} -r {wildcards.start}:{wildcards.end} | seqkit replace -p "-" -r "" -s > {output.fa}
         """
+
+
+rule get_laverania_msas:
+    input:
+        msa=f"{output_base}/gramtools/DBs/protein/DBs_full_with_pf_assemblies.msa",
+        laverania_asm_seqs=f'{config["input_data"]}/{WORKFLOW}/assembly_sequences/protein/DBs_laverania_assemblies.fa'
+    output:
+        msa=f"{output_base}/gramtools/DBs/protein/DBs_full_with_pf_and_laverania_assemblies.msa",
+        fa=f"{output_base}/gramtools/DBs/protein/trimmed/{DBL_protein_start}_{DBL_protein_end}__DBs__with_laverania.fa"
+    resources:
+        mem_mb=5000,
+    threads: 10
+    shell:
+        """
+        mafft --thread {threads} --add {input.laverania_asm_seqs} {input.msa} > {output.msa}
+        seqkit subseq {output.msa} -r {DBL_protein_start}:{DBL_protein_end} | seqkit replace -p "-" -r "" -s > {output.fa}
+        """
+
 
 rule pp_cdhit:
     input:

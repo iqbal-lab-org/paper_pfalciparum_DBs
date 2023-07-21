@@ -1,10 +1,10 @@
 # Base directories
-scripts: "analysis/scripts"
-plotting_scripts: "analysis/scripts/plotting"
+scripts: "analysis/scripts/plasmo_paralogs"
+plotting_scripts: "analysis/scripts/plasmo_paralogs/plotting"
 output_dir: "analysis/outputs"
 input_data: "analysis/input_data"
 
-container_gramtools: "plasmo_surfants/container/built/singu.sif"
+container_gramtools: "plasmo_surfants/reproducibility/container/built/singu.sif"
 
 paralog_abbrevs: ["DBs","AMA1","MSP3","MSP6","EBA175","MSP2","MSP1"]
 paralog_names:
@@ -21,6 +21,7 @@ sqlite_fnames:
 
 input_tsvs:
     ir_stats_fold_covs: "analysis/input_data/analysed_sequences/ir_stats_fold_coverages.tsv"
+    laverania_assemblies: "analysis/input_data/laverania_assemblies.tsv"
 DBs_single_snp_solved_seqs: "analysis/input_data/analysed_sequences/DBs_single_snp_solved_seqs.fa"
 
 domain_extra_amino_acid_window_size: 10
