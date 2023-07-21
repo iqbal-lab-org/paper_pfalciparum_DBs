@@ -13,9 +13,11 @@ workflows + scripts under `analysis`.
 
 Like its sister project, it supports the following publication:
 
-> Gene conversion drives allelic dimorphism in two paralogous surface antigens of the malaria parasite *P. falciparum*
+> doi: https://doi.org/10.1101/2023.02.27.530215
 
 Inputs: Input data is copied over from the outputs of `plasmo_surfants`, see below.
+
+**Data availability**: The analysed sequences are all available on zenodo (see paper).
 
 Documentation: I made a literature review of DBLMSP and DBLMSP2, [here](docs/dblmsp_lit_review/report.pdf).
 
@@ -29,45 +31,50 @@ Documentation: I made a literature review of DBLMSP and DBLMSP2, [here](docs/dbl
 
 For point 2, these are:
 
-`$ find analysis/input_data/analysed_sequences`
+`$ find analysis/input_data`
 ```sh
-analysed_sequences/
-analysed_sequences/DBs_single_snp_solved_seqs.fa
-analysed_sequences/ir_stats_all.tsv
-analysed_sequences/ir_stats_fold_coverages.tsv
-analysed_sequences/pacb_ilmn_pf
-analysed_sequences/pacb_ilmn_pf/AMA1_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/DBs_gram_joint_geno_ebf7bcd5__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pacb_ilmn_pf/DBs_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/EBA175_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/MSP1_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/MSP2_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/MSP3_otto_assemblies.fa
-analysed_sequences/pacb_ilmn_pf/MSP6_otto_assemblies.fa
-analysed_sequences/pf6
-analysed_sequences/pf6/AMA1_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/AMA1_malariaGEN_pf6.fa
-analysed_sequences/pf6/DBs_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/DBs_malariaGEN_pf6.fa
-analysed_sequences/pf6/EBA175_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/EBA175_malariaGEN_pf6.fa
-analysed_sequences/pf6/MSP1_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/MSP1_malariaGEN_pf6.fa
-analysed_sequences/pf6/MSP2_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/MSP2_malariaGEN_pf6.fa
-analysed_sequences/pf6/MSP3_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/MSP3_malariaGEN_pf6.fa
-analysed_sequences/pf6/MSP6_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
-analysed_sequences/pf6/MSP6_malariaGEN_pf6.fa
+analysis/input_data/
+analysis/input_data/analysed_sequences
+analysis/input_data/analysed_sequences/DBs_single_snp_solved_seqs.fa
+analysis/input_data/analysed_sequences/assembly_sequences
+analysis/input_data/analysed_sequences/assembly_sequences/dna
+analysis/input_data/analysed_sequences/assembly_sequences/dna/AMA1_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/DBs_gram_joint_geno_ebf7bcd5__pacb_ilmn_pf@pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/DBs_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/EBA175_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/MSP1_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/MSP2_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/MSP3_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/dna/MSP6_pf_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/protein
+analysis/input_data/analysed_sequences/assembly_sequences/protein/DBs_laverania_assemblies.fa
+analysis/input_data/analysed_sequences/assembly_sequences/protein/DBs_laverania_assemblies_with_DBLMSP2_reichenowi.fa
+analysis/input_data/analysed_sequences/ir_stats_all.tsv
+analysis/input_data/analysed_sequences/ir_stats_fold_coverages.tsv
+analysis/input_data/analysed_sequences/pf6
+analysis/input_data/analysed_sequences/pf6/AMA1_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/AMA1_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/DBLMSP2_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/DBLMSP_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/DBs_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/DBs_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/EBA175_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/EBA175_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/MSP1_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/MSP1_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/MSP2_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/MSP2_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/MSP3_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/MSP3_malariaGEN_pf6.fa
+analysis/input_data/analysed_sequences/pf6/MSP6_gramtools_joint_geno_ebf7bcd5__pf6__analysis_set_fws95__gapfiller__7__13.fa
+analysis/input_data/analysed_sequences/pf6/MSP6_malariaGEN_pf6.fa
+analysis/input_data/domain_coordinates.tsv
+analysis/input_data/laverania_assemblies.tsv
+analysis/input_data/sequence_colour_schemes.tsv
 ```
 
-The first three files in that list are produced by the workflow 'eval_varcalls' in
-`plasmo_surfants` repository (`/analysis/outputs/eval_varcalls/induced_refs`)
-
-The rest are produced by the workflow 'plasmo_paralogs' in
-`plasmo_surfants` repository (outputs: `analysis/outputs/plasmo_paralogs`),
-
-I also provide all these files on zenodo (see paper).
+These files are copied over from the outputs of workflows in the `plasmo_surfants` repository.
+They are available on zenodo.
 
 ### List and description of workflows
 
