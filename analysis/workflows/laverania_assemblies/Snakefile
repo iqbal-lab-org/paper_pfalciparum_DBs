@@ -1,0 +1,92 @@
+from glob import glob
+
+WORKFLOW = "laverania_assemblies"
+
+
+configfile: "analysis/configs/common.yaml"
+
+
+container: config["container_gramtools"]
+
+
+include: "../common_utils.py"
+include: f"../{WORKFLOW}/utils.py"
+
+
+output_base = Path(f'{config["output_dir"]}/{WORKFLOW}')
+output_asm = output_base / "assemblies"
+output_alignments = output_base / "alignments"
+output_seqs = output_base / "sequences"
+cu_mk_output_dirs(dir())
+
+asm_names = lav_load_assembly_names()
+asm_names.pop("ASM160185v1")  # this reichenowi assembly did not look usable: DBLMSP gene hits were partial and fell at the start of contigs
+GENE_NAMES = ["DBLMSP", "DBLMSP2", "MSP1", "MSP3", "MSP6"]
+
+
+rule all:
+    input:
+        expand(
+            f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.{{ext}}",
+            gene_name=GENE_NAMES,
+            asm_name=asm_names.keys(),
+            ext=["bam", "bed", "fa"],
+        ),
+        DB_prots=f"{output_seqs}/DBs_proteins.fa",
+
+
+rule lav_download_assembly:
+    output:
+        f"{output_asm}/{{asm_name}}.fa.gz",
+    shadow:
+        "minimal"
+    params:
+        accession=lambda wc: asm_names[wc.asm_name],
+        output_prefix=f"{output_asm}/{{asm_name}}.fa",
+    shell:
+        """
+        curl -OJX GET "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{params.accession}/download?include_annotation_type=GENOME_FASTA,GENOME_GFF,RNA_FASTA,CDS_FASTA,PROT_FASTA,SEQUENCE_REPORT&filename={params.accession}.zip" -H "Accept: application/zip"
+        unzip {params.accession}
+        mv ncbi_dataset/data/{params.accession}/{params.accession}*.fna {params.output_prefix}
+        bgzip {params.output_prefix}
+        """
+
+
+rule lav_align_gene_seqs_to_asm:
+    input:
+        dna_seqs=lambda wildcards: glob(
+            f'{config["input_data"]}/analysed_sequences/pf6/{wildcards.gene_name}_gramtools*.fa'
+        ),
+        asm=f"{output_asm}/{{asm_name}}.fa.gz",
+    shadow:
+        "minimal"
+    output:
+        bam=f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.bam",
+        bed=f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.bed",
+        fasta=f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.fa",
+    shell:
+        """
+        minimap2 -x asm20 -a {input.asm} {input.dna_seqs} | samtools sort -Obam -o {output.bam}
+        bedtools bamtobed -i {output.bam} | bedtools sort | bedtools merge > pre.bed
+        awk '{{print $0"\t{wildcards.gene_name}_laverania_{wildcards.asm_name}"}}' pre.bed > {output.bed}
+        gzip -dc {input.asm} > genome.fa
+        bedtools getfasta -name -fi genome.fa -bed {output.bed} > {output.fasta}
+        """
+
+
+rule lav_translate_to_prots:
+    input:
+        DB_seqs=expand(
+            f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.fa",
+            gene_name=["DBLMSP", "DBLMSP2"],
+            asm_name=asm_names.keys(),
+        ),
+    shadow:
+        "minimal"
+    output:
+        DB_prots=f"{output_seqs}/DBs_proteins.fa",
+    shell:
+        """
+        cat {input.DB_seqs} > seqs.fa
+        seqkit seq -m 1000 seqs.fa | seqkit translate > {output}
+        """
