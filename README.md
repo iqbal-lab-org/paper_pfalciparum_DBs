@@ -10,7 +10,7 @@ the genes picked for analysis.
 
 Two of these, DBLMSP and DBLMSP2, were analysed in detail, supporting the following publication:
 
-> Gene conversion drives allelic dimorphism in two paralogous surface antigens of the malaria parasite *P. falciparum*
+> doi: https://doi.org/10.1101/2023.02.27.530215
 
 Some of the others are analysed a little bit more in my thesis:
 

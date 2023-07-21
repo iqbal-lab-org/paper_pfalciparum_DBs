@@ -15,6 +15,9 @@ analysis/input_data/barry_lab/paolo_pvgv*
 analysis/input_data/pf7/*.vcf.gz*
 analysis/input_data/template.vcf.gz.csi
 
+# zenodo
+reproducibility/zenodo
+
 # python
 __pycache__
 *.egg-info
