@@ -16,7 +16,13 @@ Some of the others are analysed a little bit more in my thesis:
 
 > Genome-graph based genotyping with applications to highly variable genes in *P. falciparum*. https://doi.org/10.17863/CAM.93368
 
-## Structure
+## Publication reproducibility
+
+* To regenerate results, run the Snakemake workflows as detailed below. These rely on version-frozen software 
+  through a singularity container, available in the [zenodo][zenodo] release associated with the publication above.
+* To regenerate figures in the publication above, also refer to this [zenodo][zenodo] release.
+
+## Project structure
 
 The project is divided into Snakemake workflows located at `analysis/workflows`.
 Code used by the workflows is in `analysis/scripts`.
@@ -25,8 +31,7 @@ Reproducibility is mediated by a singularity container whose definition is at
 `reproducibility/container/singu_def.def`.
 
 A built version of this container is expected by the workflows in
-`reproducibility/container/built/singu.sif`. A built version is available on zenodo and 
-can be copied from there (see paper for link).
+`reproducibility/container/built/singu.sif`. A built version is available on [zenodo][zenodo].
 
 An additional repository is included in this project, as a git subtree, called
 `plasmo_paralogs`. That sub-project runs all the sequence analyses of DBLMSP and
@@ -61,7 +66,7 @@ sh analysis/cluster_submit.sh
 Requirements: None
 
 Downloads 3 main datasets, using input TSVs located at `analysis/input_data/sample_lists`
-(and also released on zenodo, see paper for link):
+(and also released on [zenodo][zenodo]):
 
   * `pf6`: downloads all p. falciparum read sets from malariaGEN [pf6 release][pf6_release]
   * `pacb_ilmn_pf`: downloads paired illumina reads and pacbio assemblies for 15 samples from [Otto et al. (2018)][otto_2018]
@@ -220,3 +225,4 @@ See the [documentation](docs/pf_genes.pdf) for a list and rationale for the gene
 [hamilton_2017]: https://doi.org/10.1093/nar/gkw1259
 [otto_2018]: https://doi.org/10.12688/wellcomeopenres.14571.1
 [otto_2018b]: https://doi.org/10.1038/s41564-018-0162-2
+[zenodo]: https://zenodo.org/doi/10.5281/zenodo.7677547
