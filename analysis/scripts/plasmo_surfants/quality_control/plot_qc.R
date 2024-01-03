@@ -5,26 +5,26 @@ library(dplyr)
 library(readr)
 library(forcats)
 library(argparser, quietly=TRUE)
+library(ggsci)
+library(scales)
 
 df_rs = read_tsv("/home/brice/Desktop/main_PhD/analyses/plasmo_surfants/tmp_work/quality_control/read_stats.tsv")
+used_metrics <- c("base_quality","read_length","insert_size_below_10000","mapping_depth")
+df_rs <- filter(df_rs,metric_category %in% used_metrics)
+df_rs$metric_category <- factor(df_rs$metric_category,levels=used_metrics,
+                                  labels=c(
+                                    "Read base quality (Phred-scale)",
+                                    "Read length",
+                                    "Sequenced fragment lengths (<10000)",
+                                    "Read fold-coverage"
+                                  )
+                                )
+ggplot(df_rs %>% filter(metric == "mean"),
+       aes(x=value)) + geom_histogram(colour="#1B1919FF",fill="#00468BFF") + facet_wrap(vars(metric_category),scales="free",ncol=2) +
+  xlab("Metric value") + ylab("Number of samples") + theme(text = element_text(size=15))
+ggsave("/home/brice/Desktop/main_PhD/analyses/plasmo_surfants/tmp_work/quality_control/read_qc.pdf",width=12,height=10)
 
-ggplot(df_rs %>% filter(metric_category == "mapping_depth" & metric != "stdv"),aes(x=value,fill=metric)) + geom_histogram()
-ggplot(df_rs %>% filter(metric_category == "base_quality" & metric != "stdv"),aes(x=value,fill=metric)) + geom_histogram()
-ggplot(df_rs %>% filter(metric_category == "read_length" & metric != "stdv"),aes(x=value,fill=metric)) + geom_histogram()
+df_rs_wide <- pivot_wider(filter(df_rs,metric=="mean"),names_from=metric_category,values_from=value)
+ggplot(df_rs_wide,aes(x=read_length,y=insert_size_below_10000)) + geom_point()
 
-
-df_vs = read_tsv("/home/brice/Desktop/main_PhD/analyses/plasmo_surfants/tmp_work/quality_control/vcf_stats.tsv")
-df_vs <- df_vs %>% mutate(midpoint = start + ((end - start) / 2),
-                          avg=value / (end - start + 1))
-dblmsp <- filter(df_vs, gene == "DBLMSP" & tool == "gram_jointgeno_ebf7bcd5__pf6_analysis_set_fws95__7__13" &
-                   metric %in% c("DP","COV"))
-ggplot(dblmsp, aes(x=midpoint,y=avg,group=midpoint)) + facet_wrap(vars(metric)) + geom_boxplot(outlier.alpha = 0.1)
-
-dblmsp2 <- filter(df_vs, gene == "DBLMSP2" & tool == "gram_jointgeno_ebf7bcd5__pf6_analysis_set_fws95__7__13" &
-                   metric %in% c("DP","COV"))
-ggplot(dblmsp2, aes(x=midpoint,y=avg,group=midpoint)) + facet_wrap(vars(metric)) + geom_boxplot()
-
-eba175 <- filter(df_vs, gene == "EBA175" & tool == "gram_jointgeno_ebf7bcd5__pf6_analysis_set_fws95__7__13" &
-                   metric %in% c("DP","COV"))
-ggplot(eba175, aes(x=midpoint,y=avg,group=midpoint)) + facet_wrap(vars(metric)) + geom_boxplot()
-
+show_col(pal_lancet("lanonc")(9))
