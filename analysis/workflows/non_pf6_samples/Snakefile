@@ -52,8 +52,8 @@ include: "utils.py"
 
 
 DATASETS = {
-        # "clone_trees": [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])],
-        # "crosses": [elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])],
+        "clone_trees": [elem.sample_name for elem in cu_load_clone_trees(config["clone_tree_tsv"])],
+        "crosses": [elem.sample_name for elem in cu_load_crosses(config["crosses_tsv"])],
         "laverania_illumina": [elem.sample_name for elem in cu_load_laverania_illumina(config["laverania_illumina_tsv"]) if elem.sample_name not in {"PPRFG03"}]
         }
 
