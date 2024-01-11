@@ -284,20 +284,28 @@ def main(msa_fname, sqlite_db_fpath, out_dirname, protein_fasta, seq_region, plo
 
         prot_seqs = Fasta(protein_fasta)
         for cluster_num, snames in clusters_samples.items():
-            with open(f"{out_dirname}/conv_cluster_{cluster_num}.fasta", "w") as fout:
-                for sname in snames:
-                    try:
-                        for gene_ID in gene_ids:
-                            seq_id = f"{gene_ID}_{sname}"
-                            seq = prot_seqs[seq_id][input_start:input_end].seq
-                            fout.write(f">{seq_id}\n{seq}\n")
-                    except KeyError:
-                        print(f"Not found: {sname}")
-                        continue
+            fname_template=f"{out_dirname}/conv_cluster_{cluster_num}"
+            fdict = {fname_template:open(f"{fname_template}.fasta", "w")}
+            for gene_ID in gene_ids:
+                fdict[f"{fname_template}__{gene_ID}"] = open(f"{fname_template}__{gene_ID}.fasta","w")
+            for sname in snames:
+                try:
+                    for gene_ID in gene_ids:
+                        seq_id = f"{gene_ID}_{sname}"
+                        seq = prot_seqs[seq_id][input_start:input_end].seq
+                        seq_to_write=f">{seq_id}\n{seq}\n"
+                        fdict[fname_template].write(seq_to_write)
+                        fdict[f"{fname_template}__{gene_ID}"].write(seq_to_write)
+                except KeyError:
+                    print(f"Not found: {sname}")
+                    continue
+            for elem in fdict.values():
+                elem.close()
 
         # Process all-gap columns
-        for cluster_num in clusters_samples.keys():
-            msa_fname = f"{out_dirname}/conv_cluster_{cluster_num}.fasta"
+        all_files = Path(out_dirname).glob("conv_cluster*.fasta")
+        for globbed_file in all_files:
+            msa_fname = str(globbed_file)
             recs = []
             for rec in AlignIO.read(open(msa_fname), "fasta"):
                 recs.append(SeqRecord(Seq(rec.seq), id=rec.id, description=""))

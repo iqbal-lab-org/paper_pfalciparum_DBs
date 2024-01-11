@@ -40,7 +40,7 @@ from plasmo_paralogs.seq_stats.sharing import load_kmer_sharing_mapping
 from plasmo_paralogs.common_utils.sequences import get_pos_tuple, extract_kmer
 
 
-LAV_SPECIES = ["P. praefalciparum", "P. reichenowi", "P. billcollinsi", "P. falciparum"]
+LAV_SPECIES = ["P. praefalciparum", "P. reichenowi", "P. billcollinsi", "P. falciparum", "P. adleri", "P. gaboni", "P. blacklocki"]
 
 
 def get_species_name(record):
@@ -52,6 +52,10 @@ def get_species_name(record):
         "PRG01": LAV_SPECIES[1],
         "PREICH001": LAV_SPECIES[1],
         "PBILCG01": LAV_SPECIES[2],
+        "PADLG01": LAV_SPECIES[4],
+        "PBLACG01": LAV_SPECIES[6],
+        "PGABG01": LAV_SPECIES[5],
+        "PGABG02": LAV_SPECIES[5],
     }
     sample_name = record.id.split(ID_DELIM)[-1].strip()
     return species_map.get(sample_name, LAV_SPECIES[3])
@@ -248,7 +252,7 @@ def write_gene_colours(msa: MSA, gene_dir):
         fout.write("DATA\n")
         for record in msa:
             gene_name = get_gene_name(record)
-            colour = colour_map[gene_name]
+            colour = colour_map.get(gene_name, "#efbd24")
             fout.write(f"{record.id}\t{colour}\t{gene_name}\n")
 
 
@@ -258,7 +262,9 @@ def write_species_colours(msa: MSA, gene_dir):
         LAV_SPECIES[1]: "#0096ff",
         LAV_SPECIES[2]: "#00e8c4",
         LAV_SPECIES[3]: "#8a03ff",
-        # LAV_SPECIES[3]: "#cc0000",
+        LAV_SPECIES[4]: "#d52d2d",
+        LAV_SPECIES[5]: "#ffa246",
+        LAV_SPECIES[6]: "#46ff74",
     }
     all_colours = "\t".join(colour_map.values())
     all_labels = "\t".join(colour_map.keys())
@@ -273,7 +279,7 @@ def write_species_colours(msa: MSA, gene_dir):
         fout.write(f"LEGEND_TITLE\tSpecies\n")
         fout.write(f"LEGEND_COLORS\t{all_colours}\n")
         fout.write(f"LEGEND_LABELS\t{all_labels}\n")
-        fout.write(f"LEGEND_SHAPES\t1\t1\t1\t1\n")
+        fout.write(f"LEGEND_SHAPES"+"\t1"*len(colour_map.keys())+"\n")
         fout.write("DATA\n")
         for record in msa:
             species_name = get_species_name(record)
@@ -336,6 +342,7 @@ def write_percent_identities(msa: MSA, percent_identities, gene_dir) -> None:
     show_default=True,
 )
 @click.option("-m", "--mosaic_alignment_fname")
+@click.option("--just_tree", is_flag=True,)
 def main(
     msa_fname,
     dir_ofname,
@@ -344,6 +351,7 @@ def main(
     seq_region,
     kmer_sizes,
     mosaic_alignment_fname,
+    just_tree
 ):
     SHARED_ID = "DBs"
     start, end = map(int, seq_region.split(REGION_DELIM))
@@ -353,34 +361,38 @@ def main(
     # Load MSA, with laverania
     alignment = load_MSA(msa_fname, start, end)
 
-    # Load MSA, without laverania
-    msa_fname_no_laverania = msa_fname.replace("_and_laverania", "").replace("_and_premature_stops","")
-    alignment_no_laverania = load_MSA(msa_fname_no_laverania, start, end)
+    if not just_tree:
+        # Load MSA, without laverania
+        msa_fname_no_laverania = msa_fname.replace("_and_laverania", "").replace("_and_premature_stops","")
+        alignment_no_laverania = load_MSA(msa_fname_no_laverania, start, end)
 
-    # Load and compute mosaic-recomb links
-    if mosaic_alignment_fname is not None:
-        recomb_donors = parse_mosaic_alignment_file({}, mosaic_alignment_fname, True)
-        compute_and_write_recomb_links(recomb_donors, outdir)
+        # Load and compute mosaic-recomb links
+        if mosaic_alignment_fname is not None:
+            recomb_donors = parse_mosaic_alignment_file({}, mosaic_alignment_fname, True)
+            compute_and_write_recomb_links(recomb_donors, outdir)
 
     # Load percent identities
-    dna_msa_fname = msa_fname_no_laverania.replace(VALID_SEQTYPES[0], VALID_SEQTYPES[1])
-    table_name = get_sqlite_table_name(
-        dna_msa_fname,
-        SHARED_ID,
-        VALID_SEQTYPES[1],
-        metric_info=VALID_SQLITE_DATA[5],
-        seq_region=seq_region,
-    )
-    percent_identities = load_percent_identities(sqlite_db_fpath, table_name, SHARED_ID)
-    percent_identities = {
-        key: val for key, val in percent_identities.items() if val > 0.5
-    }
-    high_shared_samples = []
-    for sample_ID in percent_identities:
-        for gene_name in ["DBLMSP", "DBLMSP2"]:
-            high_shared_samples.append(f"{gene_name}{ID_DELIM}{sample_ID}")
+    if not just_tree:
+        dna_msa_fname = msa_fname_no_laverania.replace(VALID_SEQTYPES[0], VALID_SEQTYPES[1])
+        table_name = get_sqlite_table_name(
+            dna_msa_fname,
+            SHARED_ID,
+            VALID_SEQTYPES[1],
+            metric_info=VALID_SQLITE_DATA[5],
+            seq_region=seq_region,
+        )
+        percent_identities = load_percent_identities(sqlite_db_fpath, table_name, SHARED_ID)
+        percent_identities = {
+            key: val for key, val in percent_identities.items() if val > 0.5
+        }
+        high_shared_samples = []
+        for sample_ID in percent_identities:
+            for gene_name in ["DBLMSP", "DBLMSP2"]:
+                high_shared_samples.append(f"{gene_name}{ID_DELIM}{sample_ID}")
 
-    seq_names_to_include = list(recomb_donors.keys()) + high_shared_samples
+        seq_names_to_include = list(recomb_donors.keys()) + high_shared_samples
+    else:
+        seq_names_to_include = list()
     split_alignments = get_split_alignments(alignment, seq_names_to_include, SHARED_ID)
     # Write trees
     region_for_output = f"{start}{ID_DELIM}{end}"
@@ -392,30 +404,32 @@ def main(
             fout.write(tree)
 
     assert len(kmer_sizes.split(",")) == 1
-    ## Load kmer sharing stats
-    con = sqlite3.connect(sqlite_db_fpath)
-    input_table_name = get_sqlite_table_name(
-        msa_fname_no_laverania, SHARED_ID, seqtype, metric_info=VALID_SQLITE_DATA[2]
-    )
-    kmer_sharing_mapping = load_kmer_sharing_mapping(input_table_name, con)
-    con.close()
 
     ## Write additional data for trees
     for gene_name, gene_alignment in split_alignments.items():
         gene_dir = Path(outdir) / f"{gene_name}{ID_DELIM}{region_for_output}"
-        write_percent_identities(gene_alignment, percent_identities, gene_dir)
+        if not just_tree:
+            write_percent_identities(gene_alignment, percent_identities, gene_dir)
         if gene_name == SHARED_ID:
-            write_gene_colours(gene_alignment, gene_dir)
             write_species_colours(gene_alignment, gene_dir)
+            write_gene_colours(gene_alignment, gene_dir)
             write_premature_stops(gene_alignment, gene_dir)
 
-    split_alignments_no_laverania = get_split_alignments(
-        alignment_no_laverania, seq_names_to_include, SHARED_ID, dedup=False
-    )
-    for gene_name, gene_alignment in split_alignments_no_laverania.items():
-        compute_and_write_frac_shared(
-            gene_alignment, kmer_sharing_mapping, int(kmer_sizes), start, gene_dir
+    if not just_tree:
+        split_alignments_no_laverania = get_split_alignments(
+            alignment_no_laverania, seq_names_to_include, SHARED_ID, dedup=False
         )
+        ## Load kmer sharing stats
+        con = sqlite3.connect(sqlite_db_fpath)
+        input_table_name = get_sqlite_table_name(
+            msa_fname_no_laverania, SHARED_ID, seqtype, metric_info=VALID_SQLITE_DATA[2]
+        )
+        kmer_sharing_mapping = load_kmer_sharing_mapping(input_table_name, con)
+        con.close()
+        for gene_name, gene_alignment in split_alignments_no_laverania.items():
+            compute_and_write_frac_shared(
+                gene_alignment, kmer_sharing_mapping, int(kmer_sizes), start, gene_dir
+            )
 
 
 if __name__ == "__main__":

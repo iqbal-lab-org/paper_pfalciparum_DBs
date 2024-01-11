@@ -21,17 +21,18 @@ cu_mk_output_dirs(dir())
 
 asm_names = lav_load_assembly_names()
 asm_names.pop("ASM160185v1")  # this reichenowi assembly did not look usable: DBLMSP gene hits were partial and fell at the start of contigs
-GENE_NAMES = ["DBLMSP", "DBLMSP2", "MSP1", "MSP3", "MSP6"]
+GENE_NAMES = ["AMA1", "EBA175", "DBLMSP", "DBLMSP2", "MSP1", "MSP3", "MSP6", "GLURP", "LSA1", "MSP11"]
 
 
 rule all:
     input:
-        expand(
+        alignment_files=expand(
             f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.{{ext}}",
             gene_name=GENE_NAMES,
             asm_name=asm_names.keys(),
             ext=["bam", "bed", "fa"],
         ),
+        alignment_stats=f"{output_alignments}/alignment_stats.tsv",
         DB_prots=f"{output_seqs}/DBs_proteins.fa",
 
 
@@ -56,7 +57,7 @@ rule lav_align_gene_seqs_to_asm:
     input:
         dna_seqs=lambda wildcards: glob(
             f'{config["input_data"]}/analysed_sequences/pf6/{wildcards.gene_name}_gramtools*.fa'
-        ),
+        ) + glob(f'{config["input_data"]}/analysed_sequences/pf6/{wildcards.gene_name}_3d7_ref*.fa'),
         asm=f"{output_asm}/{{asm_name}}.fa.gz",
     shadow:
         "minimal"
@@ -71,6 +72,27 @@ rule lav_align_gene_seqs_to_asm:
         awk '{{print $0"\t{wildcards.gene_name}_laverania_{wildcards.asm_name}"}}' pre.bed > {output.bed}
         gzip -dc {input.asm} > genome.fa
         bedtools getfasta -name -fi genome.fa -bed {output.bed} > {output.fasta}
+        """
+
+rule lav_process_gene_alignments:
+    input:
+        all_dna_seqs=expand(
+            f"{output_alignments}/{{gene_name}}_to_{{asm_name}}.fa",
+            gene_name=GENE_NAMES,
+            asm_name=asm_names.keys(),
+        ),
+        pf_3d7_ref_seqs=config["pf_3d7_seqs"],
+        lav_assemblies=config["input_tsvs"]["laverania_assemblies"],
+    output:
+        tsv=f"{output_alignments}/alignment_stats.tsv"
+    shadow:
+        "minimal"
+    params:
+        alignment_processor=f'{config["scripts"]}/{WORKFLOW}/process_gene_alignments.py',
+    shell:
+        """
+        cat {input.all_dna_seqs} > all_alignments.fa
+        python3 {params.alignment_processor} {input.pf_3d7_ref_seqs} all_alignments.fa {input.lav_assemblies} {output.tsv}
         """
 
 

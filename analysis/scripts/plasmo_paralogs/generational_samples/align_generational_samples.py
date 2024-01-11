@@ -11,7 +11,7 @@ import click
 import pandas as pd
 
 from plasmo_paralogs.common_utils.metrics import MetricsRecorder
-from analysis_set.filter_genes import Filter, HARDCODED_FILTERS
+from plasmo_paralogs.analysed_sequences.filter_genes import Filter, HARDCODED_FILTERS
 
 # used_filters = re.compile(".*positions_0x.*|.*disagreeing_pileup.*")
 # USED_FILTERS = [elem for elem in HARDCODED_FILTERS if used_filters.match(elem[0])]
