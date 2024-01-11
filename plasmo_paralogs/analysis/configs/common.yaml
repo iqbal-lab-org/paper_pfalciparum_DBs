@@ -22,6 +22,7 @@ sqlite_fnames:
 input_tsvs:
     ir_stats_fold_covs: "analysis/input_data/analysed_sequences/ir_stats_fold_coverages.tsv"
     laverania_assemblies: "analysis/input_data/laverania_assemblies.tsv"
+pf_3d7_seqs: "analysis/input_data/pf_3d7_genes_for_synteny.fa"
 DBs_single_snp_solved_seqs: "analysis/input_data/analysed_sequences/DBs_single_snp_solved_seqs.fa"
 
 domain_extra_amino_acid_window_size: 10
